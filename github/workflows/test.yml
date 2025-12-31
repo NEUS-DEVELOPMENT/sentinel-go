@@ -5,12 +5,15 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
+  workflow_dispatch:
 
 jobs:
   sovereign-test:
     name: Run PIR Logic Tests
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 10  # מונע ריצות אינסופיות
+    strategy:
+      fail-fast: true  # עוצר אם טסט נכשל
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -19,6 +22,16 @@ jobs:
       uses: actions/setup-go@v4
       with:
         go-version: '1.21'
+
+    - name: Cache Go modules
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/go-build
+          ~/go/pkg/mod
+        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-
 
     - name: Run Sovereign Tests
       run: go test -v ./...
