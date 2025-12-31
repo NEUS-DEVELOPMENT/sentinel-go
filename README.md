@@ -1,3 +1,4 @@
+[![Go](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml/badge.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml)
 # 🛡️ NEUS Sentinel: The Autonomous AI Sovereign (Generation 2)
 
 **NEUS Sentinel** is the first fully autonomous, standalone immune system for AI ecosystems. Unlike Generation 1 solutions that act as passive wrappers or rely on external LLMs for decision-making, NEUS is built with **Sovereign Intelligence**—capable of reasoning, detecting, and neutralizing threats entirely on its own.
