@@ -1,8 +1,8 @@
 # NEUS Sentinel Field Agent
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/neus-development/sentinel-go)](https://goreportcard.com/report/github.com/neus-development/sentinel-go)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
-[![Coverage](https://img.shields.io/badge/Coverage-83.3%25-brightgreen.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go)
+[![Coverage](https://img.shields.io/badge/Coverage-83.3%25-brightgreen.svg)](https://github.com/neus-development/sentinel-go)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A high-performance security proxy that protects LLM applications from prompt injection, jailbreaking, and adversarial attacks.
@@ -18,10 +18,22 @@ A high-performance security proxy that protects LLM applications from prompt inj
 
 Sentinel acts as a local security layer between your application and LLM providers, with optional cloud-based neural analysis from NEUS.
 
+## 🔗 Connection Modes
+
+| Mode | NEUS Connection | Use Case |
+|------|-----------------|----------|
+| **Offline** | ❌ No | Air-gapped environments, low latency requirements |
+| **Connected** | ✅ Yes | Full protection with real-time threat intelligence |
+
+**Default**: Free Tier (Offline mode) - no NEUS connection required.
+
+**Failover**: If NEUS is unreachable, Sentinel continues with local rules (no blocking on connection failure).
+
 ## 🛡️ Features by Subscription Tier
 
 | Feature | Free | Premium | Enterprise |
 |---------|------|---------|------------|
+| **NEUS Connection** | ❌ No | ✅ Yes | ✅ Yes |
 | Static Regex Rules | ✅ | ✅ | ✅ |
 | Hot-Patch Updates | ✅ | ✅ | ✅ |
 | AES-256 Encryption | ✅ | ✅ | ✅ |
@@ -32,21 +44,32 @@ Sentinel acts as a local security layer between your application and LLM provide
 | Priority Support | ❌ | ❌ | ✅ |
 | Max Queries/Day | 1,000 | 100,000 | Unlimited |
 
-## 🔒 Security Modes
+## 🔒 Security Capabilities
 
-### Offline Mode (Without NEUS)
+### Without NEUS Connection (Free Tier / Offline)
 
-- **Static Rules**: Local regex-based pattern matching
-- **Dynamic Rules**: Previously loaded hot-patches remain active
-- **Encryption**: Full AES-256 and RSA-2048 support
-- **Fallback**: Continues operating if NEUS is unreachable
+| Capability | Status | Description |
+|------------|--------|-------------|
+| Static Rules | ✅ Active | Local regex-based pattern matching |
+| Dynamic Rules | ✅ Active | Previously loaded hot-patches remain in memory |
+| AES Encryption | ✅ Active | Local encryption for data protection |
+| RSA Key Exchange | ✅ Active | Local key pair for secure handshakes |
+| Neural Analysis | ❌ Inactive | Requires NEUS connection |
+| Stealth Monitoring | ❌ Inactive | Requires Premium+ tier |
+| Real-time Updates | ❌ Inactive | Requires NEUS connection |
 
-### Connected Mode (With NEUS)
+### With NEUS Connection (Premium / Enterprise)
 
-- **Neural Analysis**: AI-powered threat detection
-- **Real-time Updates**: Instant hot-patch deployment
-- **Stealth Monitoring**: Track bypass attempts
-- **Fingerprint Analysis**: Behavioral pattern detection
+| Capability | Status | Description |
+|------------|--------|-------------|
+| Static Rules | ✅ Active | Local regex-based pattern matching |
+| Dynamic Rules | ✅ Active | Real-time updates from NEUS |
+| AES Encryption | ✅ Active | End-to-end encrypted tunnel |
+| RSA Key Exchange | ✅ Active | Secure session establishment |
+| Neural Analysis | ✅ Active | AI-powered threat detection |
+| Stealth Monitoring | ✅ Active | Track and log bypass attempts |
+| Real-time Updates | ✅ Active | Instant hot-patch deployment |
+| Fingerprint Analysis | ✅ Active | Behavioral pattern detection |
 
 ## 🚀 Quick Start
 
