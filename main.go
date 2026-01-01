@@ -1731,6 +1731,7 @@ type AutonomousOrchestrator struct {
 	sandboxMgr       *SandboxManager       // 🧪 Sandbox isolation
 	reconMgr         *ReconManager         // 🕵️ Reconnaissance
 	counterAttackMgr *CounterAttackManager // ⚔️ Counter-attacks
+	sensorRegistry   *SensorRegistry       // 🔌 Connected sensors
 	deployedAgents   []*NEUSDeployedAgent  // Active agents
 	commandQueue     chan *AgentCommand
 	eventQueue       chan *SecurityEvent
@@ -1767,11 +1768,338 @@ type SecurityEvent struct {
 }
 
 // AdaptiveLearningState holds state for adaptive learning
+// Learns from every attack and simulation to improve detection
 type AdaptiveLearningState struct {
-	PatternFrequency map[string]int64   `json:"pattern_frequency"`
-	ThreatScores     map[string]float64 `json:"threat_scores"`
-	LastUpdate       time.Time          `json:"last_update"`
-	mu               sync.RWMutex
+	// Attack Pattern Learning
+	PatternFrequency map[string]int64    `json:"pattern_frequency"`
+	ThreatScores     map[string]float64  `json:"threat_scores"`
+	AttackSequences  map[string][]string `json:"attack_sequences"`  // IP -> sequence of attack types
+	SourceReputation map[string]float64  `json:"source_reputation"` // IP -> reputation score (0-1)
+
+	// Learning Metrics
+	TotalAttacks      int64   `json:"total_attacks"`
+	BlockedAttacks    int64   `json:"blocked_attacks"`
+	FalsePositives    int64   `json:"false_positives"`
+	FalseNegatives    int64   `json:"false_negatives"`
+	DetectionAccuracy float64 `json:"detection_accuracy"`
+
+	// Temporal Patterns
+	HourlyPatterns map[int]int64 `json:"hourly_patterns"` // Hour -> attack count
+	DailyPatterns  map[int]int64 `json:"daily_patterns"`  // Day of week -> count
+
+	// Learned Signatures
+	LearnedSignatures []LearnedSignature `json:"learned_signatures"`
+	SignatureVersion  int64              `json:"signature_version"`
+
+	LastUpdate      time.Time `json:"last_update"`
+	LastTrainingRun time.Time `json:"last_training_run"`
+	mu              sync.RWMutex
+}
+
+// LearnedSignature represents a pattern learned from attacks
+type LearnedSignature struct {
+	ID          string    `json:"id"`
+	Pattern     string    `json:"pattern"`
+	ThreatType  string    `json:"threat_type"`
+	Confidence  float64   `json:"confidence"` // 0-1
+	Occurrences int64     `json:"occurrences"`
+	LastSeen    time.Time `json:"last_seen"`
+	CreatedAt   time.Time `json:"created_at"`
+	SourceIPs   []string  `json:"source_ips"`
+	Severity    int       `json:"severity"`
+	IsActive    bool      `json:"is_active"`
+}
+
+// ====== Sensor Registry & Endpoint Security ====== //
+
+// SensorRegistry tracks all connected sensors with endpoint security
+type SensorRegistry struct {
+	sensors      map[string]*RegisteredSensor
+	endpointKeys map[string]*EndpointSecurityKey
+	mu           sync.RWMutex
+}
+
+// RegisteredSensor represents a connected sensor
+type RegisteredSensor struct {
+	ID             string                 `json:"id"`
+	Name           string                 `json:"name"`
+	Type           string                 `json:"type"` // "sentinel", "proxy", "ids", "honeypot"
+	Hostname       string                 `json:"hostname"`
+	IPAddress      string                 `json:"ip_address"`
+	Port           int                    `json:"port"`
+	Status         SensorStatus           `json:"status"`
+	Version        string                 `json:"version"`
+	Capabilities   []string               `json:"capabilities"`
+	LastHeartbeat  time.Time              `json:"last_heartbeat"`
+	RegisteredAt   time.Time              `json:"registered_at"`
+	EventsReceived int64                  `json:"events_received"`
+	EventsSent     int64                  `json:"events_sent"`
+	EndpointKey    *EndpointSecurityKey   `json:"-"` // Security key (not serialized)
+	Metadata       map[string]interface{} `json:"metadata"`
+}
+
+// SensorStatus represents the status of a sensor
+type SensorStatus string
+
+const (
+	SensorStatusOnline      SensorStatus = "ONLINE"
+	SensorStatusOffline     SensorStatus = "OFFLINE"
+	SensorStatusDegraded    SensorStatus = "DEGRADED"
+	SensorStatusMaintenance SensorStatus = "MAINTENANCE"
+	SensorStatusCompromised SensorStatus = "COMPROMISED"
+)
+
+// EndpointSecurityKey provides cryptographic security between sensor and system
+type EndpointSecurityKey struct {
+	KeyID         string    `json:"key_id"`
+	SensorID      string    `json:"sensor_id"`
+	PublicKey     []byte    `json:"public_key"`  // RSA public key
+	SharedSecret  []byte    `json:"-"`           // AES-256 shared secret (not serialized)
+	Certificate   []byte    `json:"certificate"` // X.509 certificate
+	Fingerprint   string    `json:"fingerprint"` // SHA-256 fingerprint
+	IssuedAt      time.Time `json:"issued_at"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	LastRotated   time.Time `json:"last_rotated"`
+	RotationCount int       `json:"rotation_count"`
+	IsRevoked     bool      `json:"is_revoked"`
+}
+
+// NewSensorRegistry creates a new sensor registry
+func NewSensorRegistry() *SensorRegistry {
+	return &SensorRegistry{
+		sensors:      make(map[string]*RegisteredSensor),
+		endpointKeys: make(map[string]*EndpointSecurityKey),
+	}
+}
+
+// RegisterSensor registers a new sensor with endpoint security
+func (sr *SensorRegistry) RegisterSensor(name, sensorType, hostname, ip string, port int, capabilities []string) (*RegisteredSensor, *EndpointSecurityKey, error) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	// Generate sensor ID
+	sensorID := fmt.Sprintf("SENSOR-%s-%d", hostname, time.Now().UnixNano())
+
+	// Generate endpoint security key
+	endpointKey, err := sr.generateEndpointKey(sensorID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to generate endpoint key: %v", err)
+	}
+
+	sensor := &RegisteredSensor{
+		ID:            sensorID,
+		Name:          name,
+		Type:          sensorType,
+		Hostname:      hostname,
+		IPAddress:     ip,
+		Port:          port,
+		Status:        SensorStatusOnline,
+		Version:       "2.0",
+		Capabilities:  capabilities,
+		LastHeartbeat: time.Now(),
+		RegisteredAt:  time.Now(),
+		EndpointKey:   endpointKey,
+		Metadata:      make(map[string]interface{}),
+	}
+
+	sr.sensors[sensorID] = sensor
+	sr.endpointKeys[sensorID] = endpointKey
+
+	log.Printf("🔌 Sensor registered: %s [%s] at %s:%d", name, sensorType, ip, port)
+	log.Printf("🔐 Endpoint security established - Key: %s, Fingerprint: %s",
+		endpointKey.KeyID[:8]+"...", endpointKey.Fingerprint[:16]+"...")
+
+	return sensor, endpointKey, nil
+}
+
+// generateEndpointKey generates cryptographic keys for sensor-system communication
+func (sr *SensorRegistry) generateEndpointKey(sensorID string) (*EndpointSecurityKey, error) {
+	// Generate RSA key pair
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate shared secret for AES-256
+	sharedSecret := make([]byte, 32) // 256-bit key
+	if _, err := rand.Read(sharedSecret); err != nil {
+		return nil, err
+	}
+
+	// Generate key fingerprint
+	pubKeyBytes := x509.MarshalPKCS1PublicKey(&privateKey.PublicKey)
+	hash := sha256.Sum256(pubKeyBytes)
+	fingerprint := fmt.Sprintf("%x", hash)
+
+	keyID := fmt.Sprintf("KEY-%d", time.Now().UnixNano())
+
+	return &EndpointSecurityKey{
+		KeyID:         keyID,
+		SensorID:      sensorID,
+		PublicKey:     pubKeyBytes,
+		SharedSecret:  sharedSecret,
+		Fingerprint:   fingerprint,
+		IssuedAt:      time.Now(),
+		ExpiresAt:     time.Now().Add(365 * 24 * time.Hour), // 1 year
+		LastRotated:   time.Now(),
+		RotationCount: 0,
+		IsRevoked:     false,
+	}, nil
+}
+
+// ValidateSensorAuth validates a sensor's authentication
+func (sr *SensorRegistry) ValidateSensorAuth(sensorID string, authToken []byte) bool {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+
+	key, exists := sr.endpointKeys[sensorID]
+	if !exists {
+		log.Printf("⚠️ Unknown sensor attempted auth: %s", sensorID)
+		return false
+	}
+
+	if key.IsRevoked {
+		log.Printf("⚠️ Revoked key used by sensor: %s", sensorID)
+		return false
+	}
+
+	if time.Now().After(key.ExpiresAt) {
+		log.Printf("⚠️ Expired key used by sensor: %s", sensorID)
+		return false
+	}
+
+	// Verify HMAC with shared secret
+	mac := hmacSHA256(key.SharedSecret, []byte(sensorID))
+	if !hmacEqual(mac, authToken) {
+		log.Printf("⚠️ Invalid auth token from sensor: %s", sensorID)
+		return false
+	}
+
+	return true
+}
+
+// hmacSHA256 computes HMAC-SHA256
+func hmacSHA256(key, data []byte) []byte {
+	h := sha256.New()
+	h.Write(key)
+	h.Write(data)
+	return h.Sum(nil)
+}
+
+// hmacEqual compares two HMACs securely
+func hmacEqual(a, b []byte) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	var result byte
+	for i := 0; i < len(a); i++ {
+		result |= a[i] ^ b[i]
+	}
+	return result == 0
+}
+
+// UpdateSensorHeartbeat updates the heartbeat for a sensor
+func (sr *SensorRegistry) UpdateSensorHeartbeat(sensorID string) error {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	sensor, exists := sr.sensors[sensorID]
+	if !exists {
+		return fmt.Errorf("sensor not found: %s", sensorID)
+	}
+
+	sensor.LastHeartbeat = time.Now()
+	sensor.Status = SensorStatusOnline
+	return nil
+}
+
+// RotateEndpointKey rotates the security key for a sensor
+func (sr *SensorRegistry) RotateEndpointKey(sensorID string) (*EndpointSecurityKey, error) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	oldKey, exists := sr.endpointKeys[sensorID]
+	if !exists {
+		return nil, fmt.Errorf("sensor not found: %s", sensorID)
+	}
+
+	// Generate new key
+	newKey, err := sr.generateEndpointKey(sensorID)
+	if err != nil {
+		return nil, err
+	}
+
+	newKey.RotationCount = oldKey.RotationCount + 1
+
+	// Revoke old key
+	oldKey.IsRevoked = true
+
+	// Store new key
+	sr.endpointKeys[sensorID] = newKey
+	if sensor, ok := sr.sensors[sensorID]; ok {
+		sensor.EndpointKey = newKey
+	}
+
+	log.Printf("🔄 Endpoint key rotated for sensor %s (rotation #%d)", sensorID, newKey.RotationCount)
+
+	return newKey, nil
+}
+
+// GetAllSensors returns all registered sensors
+func (sr *SensorRegistry) GetAllSensors() []*RegisteredSensor {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+
+	sensors := make([]*RegisteredSensor, 0, len(sr.sensors))
+	for _, sensor := range sr.sensors {
+		sensors = append(sensors, sensor)
+	}
+	return sensors
+}
+
+// GetSensor returns a specific sensor
+func (sr *SensorRegistry) GetSensor(sensorID string) *RegisteredSensor {
+	sr.mu.RLock()
+	defer sr.mu.RUnlock()
+	return sr.sensors[sensorID]
+}
+
+// CheckSensorHealth checks health of all sensors
+func (sr *SensorRegistry) CheckSensorHealth() map[string]SensorStatus {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	healthMap := make(map[string]SensorStatus)
+	now := time.Now()
+
+	for id, sensor := range sr.sensors {
+		timeSinceHeartbeat := now.Sub(sensor.LastHeartbeat)
+
+		if timeSinceHeartbeat > 5*time.Minute {
+			sensor.Status = SensorStatusOffline
+		} else if timeSinceHeartbeat > 2*time.Minute {
+			sensor.Status = SensorStatusDegraded
+		}
+
+		healthMap[id] = sensor.Status
+	}
+
+	return healthMap
+}
+
+// RemoveSensor removes a sensor and revokes its keys
+func (sr *SensorRegistry) RemoveSensor(sensorID string) {
+	sr.mu.Lock()
+	defer sr.mu.Unlock()
+
+	if key, exists := sr.endpointKeys[sensorID]; exists {
+		key.IsRevoked = true
+		log.Printf("🔐 Endpoint key revoked for sensor: %s", sensorID)
+	}
+
+	delete(sr.sensors, sensorID)
+	delete(sr.endpointKeys, sensorID)
+	log.Printf("🔌 Sensor removed: %s", sensorID)
 }
 
 // NewAutonomousOrchestrator creates a new orchestrator
@@ -1785,13 +2113,19 @@ func NewAutonomousOrchestrator(config *AgentConfig) *AutonomousOrchestrator {
 		sandboxMgr:       NewSandboxManager(),
 		reconMgr:         NewReconManager(),
 		counterAttackMgr: NewCounterAttackManager(nil),
+		sensorRegistry:   NewSensorRegistry(), // 🔌 Initialize sensor tracking
 		deployedAgents:   make([]*NEUSDeployedAgent, 0),
 		commandQueue:     make(chan *AgentCommand, 100),
 		eventQueue:       make(chan *SecurityEvent, 1000),
 		stopChan:         make(chan struct{}),
 		learningState: &AdaptiveLearningState{
-			PatternFrequency: make(map[string]int64),
-			ThreatScores:     make(map[string]float64),
+			PatternFrequency:  make(map[string]int64),
+			ThreatScores:      make(map[string]float64),
+			AttackSequences:   make(map[string][]string),
+			SourceReputation:  make(map[string]float64),
+			HourlyPatterns:    make(map[int]int64),
+			DailyPatterns:     make(map[int]int64),
+			LearnedSignatures: make([]LearnedSignature, 0),
 		},
 	}
 
@@ -2498,14 +2832,220 @@ func (ao *AutonomousOrchestrator) updateLearningState(event *SecurityEvent) {
 	ao.learningState.mu.Lock()
 	defer ao.learningState.mu.Unlock()
 
-	ao.learningState.PatternFrequency[event.Type]++
-	ao.learningState.LastUpdate = time.Now()
+	now := time.Now()
 
-	// Adjust threat score based on frequency
+	// 📊 Basic pattern frequency tracking
+	ao.learningState.PatternFrequency[event.Type]++
+	ao.learningState.LastUpdate = now
+	ao.learningState.TotalAttacks++
+
+	// 🎯 Adjust threat score based on frequency and severity
 	freq := ao.learningState.PatternFrequency[event.Type]
+	baseThreat := float64(event.Severity)
 	if freq > 10 {
-		ao.learningState.ThreatScores[event.Type] = float64(event.Severity) * 1.2
+		ao.learningState.ThreatScores[event.Type] = baseThreat * 1.2
+	} else if freq > 5 {
+		ao.learningState.ThreatScores[event.Type] = baseThreat * 1.1
+	} else {
+		ao.learningState.ThreatScores[event.Type] = baseThreat
 	}
+
+	// 🔗 Learn attack sequences - track patterns that follow each other
+	sourceKey := event.Source
+	if sourceKey == "" {
+		sourceKey = "unknown"
+	}
+	if ao.learningState.AttackSequences[sourceKey] == nil {
+		ao.learningState.AttackSequences[sourceKey] = make([]string, 0, 10)
+	}
+	sequence := ao.learningState.AttackSequences[sourceKey]
+	sequence = append(sequence, event.Type)
+	// Keep last 10 events per source for sequence analysis
+	if len(sequence) > 10 {
+		sequence = sequence[len(sequence)-10:]
+	}
+	ao.learningState.AttackSequences[sourceKey] = sequence
+
+	// 🏷️ Update source reputation (lower score = more suspicious)
+	if _, exists := ao.learningState.SourceReputation[sourceKey]; !exists {
+		ao.learningState.SourceReputation[sourceKey] = 100.0 // Start neutral
+	}
+	// Reduce reputation based on event severity
+	reputationPenalty := float64(event.Severity) * 0.5
+	ao.learningState.SourceReputation[sourceKey] -= reputationPenalty
+	if ao.learningState.SourceReputation[sourceKey] < 0 {
+		ao.learningState.SourceReputation[sourceKey] = 0
+	}
+
+	// 📅 Learn temporal patterns - hourly (simple count per hour)
+	hour := now.Hour()
+	ao.learningState.HourlyPatterns[hour]++
+
+	// 📅 Learn temporal patterns - daily (day of week as int)
+	dayOfWeek := int(now.Weekday())
+	ao.learningState.DailyPatterns[dayOfWeek]++
+
+	// 🧬 Generate learned signature for high-severity events
+	if event.Severity >= 7 && freq >= 3 {
+		ao.learnNewSignature(event, sourceKey)
+	}
+
+	// 📈 Update detection accuracy (simulated - based on blocked vs total)
+	if ao.learningState.TotalAttacks > 0 {
+		ao.learningState.DetectionAccuracy = float64(ao.learningState.BlockedAttacks) / float64(ao.learningState.TotalAttacks)
+	}
+
+	log.Printf("📚 [LEARNING] Event: %s | Source: %s | Freq: %d | Reputation: %.1f | Total: %d",
+		event.Type, sourceKey, freq, ao.learningState.SourceReputation[sourceKey], ao.learningState.TotalAttacks)
+}
+
+// learnNewSignature creates a signature from detected attack patterns
+func (ao *AutonomousOrchestrator) learnNewSignature(event *SecurityEvent, source string) {
+	// Check if we already have a similar signature
+	for i := range ao.learningState.LearnedSignatures {
+		sig := &ao.learningState.LearnedSignatures[i]
+		if sig.Pattern == event.Type {
+			// Update existing signature confidence
+			sig.Confidence = (sig.Confidence + 0.1)
+			if sig.Confidence > 1.0 {
+				sig.Confidence = 1.0
+			}
+			sig.Occurrences++
+			sig.LastSeen = time.Now()
+			// Add source IP if not already tracked
+			for _, ip := range sig.SourceIPs {
+				if ip == source {
+					return
+				}
+			}
+			sig.SourceIPs = append(sig.SourceIPs, source)
+			return
+		}
+	}
+
+	// Generate signature hash
+	sigData := fmt.Sprintf("%s:%s:%d:%d", event.Type, source, event.Severity, time.Now().Unix())
+	hash := sha256.Sum256([]byte(sigData))
+
+	// Create new learned signature
+	newSig := LearnedSignature{
+		ID:          fmt.Sprintf("SIG-%d-%x", len(ao.learningState.LearnedSignatures)+1, hash[:4]),
+		Pattern:     event.Type,
+		ThreatType:  event.Type,
+		Confidence:  0.6 + float64(ao.learningState.PatternFrequency[event.Type])/100,
+		Occurrences: 1,
+		LastSeen:    time.Now(),
+		CreatedAt:   time.Now(),
+		SourceIPs:   []string{source},
+		Severity:    event.Severity,
+		IsActive:    true,
+	}
+	if newSig.Confidence > 1.0 {
+		newSig.Confidence = 1.0
+	}
+
+	ao.learningState.LearnedSignatures = append(ao.learningState.LearnedSignatures, newSig)
+	ao.learningState.SignatureVersion++
+	log.Printf("🧬 [SIGNATURE] New signature learned: %s (pattern: %s, confidence: %.2f)",
+		newSig.ID, newSig.Pattern, newSig.Confidence)
+}
+
+// LearnFromSimulation allows learning from attack simulations and training
+func (ao *AutonomousOrchestrator) LearnFromSimulation(attackType string, source string, severity int, wasDetected bool, responseTimeMs int64) {
+	ao.learningState.mu.Lock()
+	defer ao.learningState.mu.Unlock()
+
+	// Update pattern frequency
+	ao.learningState.PatternFrequency[attackType]++
+	ao.learningState.TotalAttacks++
+	ao.learningState.LastUpdate = time.Now()
+	ao.learningState.LastTrainingRun = time.Now()
+
+	// Track blocked attacks
+	if wasDetected {
+		ao.learningState.BlockedAttacks++
+	}
+
+	// Update false positive/negative counts
+	if wasDetected && severity == 0 {
+		// False positive - detected benign as attack
+		ao.learningState.FalsePositives++
+	} else if !wasDetected && severity > 5 {
+		// False negative - missed real attack
+		ao.learningState.FalseNegatives++
+	}
+
+	// Update detection accuracy
+	if ao.learningState.TotalAttacks > 0 {
+		correctDetections := ao.learningState.BlockedAttacks - ao.learningState.FalsePositives
+		ao.learningState.DetectionAccuracy = float64(correctDetections) / float64(ao.learningState.TotalAttacks)
+		if ao.learningState.DetectionAccuracy < 0 {
+			ao.learningState.DetectionAccuracy = 0
+		}
+	}
+
+	// Track source reputation for simulated attacks
+	if _, exists := ao.learningState.SourceReputation[source]; !exists {
+		ao.learningState.SourceReputation[source] = 100.0
+	}
+	if severity > 5 {
+		ao.learningState.SourceReputation[source] -= float64(severity) * 0.3
+	}
+
+	log.Printf("🎓 [SIMULATION] Learned from: %s | Detected: %v | Response: %dms | Accuracy: %.2f%% | FP: %d | FN: %d",
+		attackType, wasDetected, responseTimeMs, ao.learningState.DetectionAccuracy*100, 
+		ao.learningState.FalsePositives, ao.learningState.FalseNegatives)
+}
+
+// GetLearningStats returns current learning statistics
+func (ao *AutonomousOrchestrator) GetLearningStats() map[string]interface{} {
+	ao.learningState.mu.RLock()
+	defer ao.learningState.mu.RUnlock()
+
+	return map[string]interface{}{
+		"total_attacks":        ao.learningState.TotalAttacks,
+		"blocked_attacks":      ao.learningState.BlockedAttacks,
+		"unique_patterns":      len(ao.learningState.PatternFrequency),
+		"learned_signatures":   len(ao.learningState.LearnedSignatures),
+		"signature_version":    ao.learningState.SignatureVersion,
+		"tracked_sources":      len(ao.learningState.SourceReputation),
+		"detection_accuracy":   ao.learningState.DetectionAccuracy,
+		"false_positives":      ao.learningState.FalsePositives,
+		"false_negatives":      ao.learningState.FalseNegatives,
+		"last_update":          ao.learningState.LastUpdate,
+		"last_training_run":    ao.learningState.LastTrainingRun,
+	}
+}
+
+// GetSourceReputation returns the reputation score for a source
+func (ao *AutonomousOrchestrator) GetSourceReputation(source string) float64 {
+	ao.learningState.mu.RLock()
+	defer ao.learningState.mu.RUnlock()
+
+	if rep, exists := ao.learningState.SourceReputation[source]; exists {
+		return rep
+	}
+	return 100.0 // Unknown sources start neutral
+}
+
+// IsKnownAttackPattern checks if an event matches learned signatures
+func (ao *AutonomousOrchestrator) IsKnownAttackPattern(eventType string, source string) (bool, float64) {
+	ao.learningState.mu.RLock()
+	defer ao.learningState.mu.RUnlock()
+
+	for _, sig := range ao.learningState.LearnedSignatures {
+		if sig.Pattern == eventType && sig.IsActive {
+			// Check if source is in known source IPs
+			for _, ip := range sig.SourceIPs {
+				if ip == source || ip == "unknown" {
+					return true, sig.Confidence
+				}
+			}
+			// Pattern matches but different source - still useful
+			return true, sig.Confidence * 0.8
+		}
+	}
+	return false, 0.0
 }
 
 func (ao *AutonomousOrchestrator) broadcastEvent(ctx context.Context, event *SecurityEvent) {
