@@ -1,3 +1,4 @@
+// Package main implements the NEUS Sentinel Field Agent
 package main
 
 import (
