@@ -346,12 +346,24 @@ func (r NEUSAgentRole) String() string {
 	}[r]
 }
 
+// AgentStatus represents the lifecycle state of an agent
+type AgentStatus string
+
+const (
+	AgentStatusDeployed    AgentStatus = "DEPLOYED"     // 🚀 Active in RAM
+	AgentStatusExecuting   AgentStatus = "EXECUTING"    // ⚡ Processing threat
+	AgentStatusCompleted   AgentStatus = "COMPLETED"    // ✅ Mission accomplished
+	AgentStatusEvaporating AgentStatus = "EVAPORATING"  // 💨 Cleaning up from RAM
+	AgentStatusEvaporated  AgentStatus = "EVAPORATED"   // 🔥 Fully removed from RAM
+)
+
 // NEUSDeployedAgent represents an active agent deployed by NEUS
+// These agents exist ONLY in RAM and evaporate after mission completion
 type NEUSDeployedAgent struct {
 	ID            string        `json:"id"`
 	Role          NEUSAgentRole `json:"role"`
 	RoleName      string        `json:"role_name"`
-	Status        string        `json:"status"`
+	Status        AgentStatus   `json:"status"`
 	DeployedAt    time.Time     `json:"deployed_at"`
 	TargetThreat  string        `json:"target_threat"`
 	TargetIP      string        `json:"target_ip,omitempty"`
@@ -359,6 +371,13 @@ type NEUSDeployedAgent struct {
 	Effectiveness float64       `json:"effectiveness"`
 	SandboxID     string        `json:"sandbox_id,omitempty"`
 	Isolated      bool          `json:"isolated"`
+	
+	// RAM Lifecycle Management
+	TTL           time.Duration `json:"ttl"`            // Time-to-live in RAM
+	ExpiresAt     time.Time     `json:"expires_at"`     // When agent evaporates
+	CompletedAt   time.Time     `json:"completed_at"`   // When mission completed
+	EvaporatedAt  time.Time     `json:"evaporated_at"`  // When removed from RAM
+	MemoryBytes   int64         `json:"memory_bytes"`   // Estimated RAM footprint
 }
 
 // SandboxEnvironment represents an isolated environment for threat analysis
@@ -1589,6 +1608,9 @@ func (ao *AutonomousOrchestrator) Start(ctx context.Context) {
 	go ao.eventProcessor(ctx)
 	go ao.selfHealWorker(ctx)
 
+	// 💨 Start agent evaporation loop (RAM cleanup)
+	ao.StartEvaporationLoop(ctx)
+
 	log.Printf("✅ Autonomous Orchestrator running with %d agents", len(ao.agents))
 }
 
@@ -1598,11 +1620,14 @@ func (ao *AutonomousOrchestrator) Stop() {
 	close(ao.stopChan)
 	ao.wg.Wait()
 
+	// 🔥 Final evaporation - clean all agents from RAM
+	ao.EvaporateAllAgents()
+
 	status := ao.status.Load()
 	status.Running = false
 	ao.status.Store(status)
 
-	log.Printf("✅ Autonomous Orchestrator stopped")
+	log.Printf("✅ Autonomous Orchestrator stopped - all agents evaporated from RAM")
 }
 
 // heartbeatWorker sends periodic heartbeats to all agents
@@ -1944,26 +1969,219 @@ func (ao *AutonomousOrchestrator) deployAgentWithSandboxIfAllowed(role NEUSAgent
 	return agent
 }
 
+// getAgentTTL returns the time-to-live for an agent based on its role
+func getAgentTTL(role NEUSAgentRole) time.Duration {
+	switch role {
+	case RoleDefender:
+		return 5 * time.Minute   // Quick response, evaporates fast
+	case RoleAnalyzer:
+		return 10 * time.Minute  // Needs time to analyze
+	case RoleHunter:
+		return 15 * time.Minute  // Active hunting takes longer
+	case RoleForensic:
+		return 30 * time.Minute  // Deep analysis required
+	case RoleDeceiver:
+		return 20 * time.Minute  // Deception operations
+	case RoleAttacker:
+		return 3 * time.Minute   // Quick strike, immediate evaporation
+	case RoleRecon:
+		return 10 * time.Minute  // Intelligence gathering
+	case RoleSandbox:
+		return 15 * time.Minute  // Sandbox analysis time
+	case RoleContainment:
+		return 5 * time.Minute   // Quick containment
+	default:
+		return 5 * time.Minute
+	}
+}
+
+// getAgentMemoryEstimate returns estimated RAM footprint in bytes
+func getAgentMemoryEstimate(role NEUSAgentRole) int64 {
+	switch role {
+	case RoleDefender:
+		return 512 * 1024      // 512 KB
+	case RoleAnalyzer:
+		return 2 * 1024 * 1024 // 2 MB
+	case RoleHunter:
+		return 1 * 1024 * 1024 // 1 MB
+	case RoleForensic:
+		return 4 * 1024 * 1024 // 4 MB - needs more for analysis
+	case RoleSandbox:
+		return 8 * 1024 * 1024 // 8 MB - isolated environment
+	default:
+		return 512 * 1024      // 512 KB default
+	}
+}
+
 // deployAgent deploys a new agent of the specified role
+// Agent exists ONLY in RAM and will auto-evaporate after TTL or mission completion
 func (ao *AutonomousOrchestrator) deployAgent(role NEUSAgentRole, threatType string, targetIP string) *NEUSDeployedAgent {
 	ao.mu.Lock()
 	defer ao.mu.Unlock()
 
+	now := time.Now()
+	ttl := getAgentTTL(role)
+
 	agent := &NEUSDeployedAgent{
-		ID:           fmt.Sprintf("AGENT-%d", time.Now().UnixNano()),
+		ID:           fmt.Sprintf("AGENT-%d", now.UnixNano()),
 		Role:         role,
 		RoleName:     role.String(),
-		Status:       "DEPLOYED",
-		DeployedAt:   time.Now(),
+		Status:       AgentStatusDeployed,
+		DeployedAt:   now,
 		TargetThreat: threatType,
 		TargetIP:     targetIP,
 		Actions:      make([]string, 0),
 		Isolated:     false,
+		TTL:          ttl,
+		ExpiresAt:    now.Add(ttl),
+		MemoryBytes:  getAgentMemoryEstimate(role),
 	}
 
 	ao.deployedAgents = append(ao.deployedAgents, agent)
-	log.Printf("🤖 Deployed %s agent [%s] for threat: %s", role.String(), agent.ID, threatType)
+	log.Printf("🤖 Deployed %s agent [%s] for threat: %s (TTL: %v, RAM: %d KB)", 
+		role.String(), agent.ID, threatType, ttl, agent.MemoryBytes/1024)
 	return agent
+}
+
+// MarkAgentCompleted marks an agent's mission as complete and starts evaporation
+func (ao *AutonomousOrchestrator) MarkAgentCompleted(agentID string) {
+	ao.mu.Lock()
+	defer ao.mu.Unlock()
+
+	for _, agent := range ao.deployedAgents {
+		if agent.ID == agentID && agent.Status == AgentStatusDeployed {
+			agent.Status = AgentStatusCompleted
+			agent.CompletedAt = time.Now()
+			log.Printf("✅ Agent %s [%s] mission COMPLETED - preparing evaporation", agent.RoleName, agent.ID)
+			return
+		}
+	}
+}
+
+// EvaporateAgents removes completed/expired agents from RAM
+// This is the core cleanup mechanism - agents dissolve after use
+func (ao *AutonomousOrchestrator) EvaporateAgents() int {
+	ao.mu.Lock()
+	defer ao.mu.Unlock()
+
+	now := time.Now()
+	evaporatedCount := 0
+	freedMemory := int64(0)
+	activeAgents := make([]*NEUSDeployedAgent, 0)
+
+	for _, agent := range ao.deployedAgents {
+		shouldEvaporate := false
+
+		// Check if agent should evaporate
+		if agent.Status == AgentStatusEvaporated {
+			// Already evaporated, skip
+			continue
+		} else if agent.Status == AgentStatusCompleted {
+			// Mission complete - evaporate immediately
+			shouldEvaporate = true
+		} else if now.After(agent.ExpiresAt) {
+			// TTL expired - force evaporation
+			shouldEvaporate = true
+		}
+
+		if shouldEvaporate {
+			agent.Status = AgentStatusEvaporated
+			agent.EvaporatedAt = now
+			freedMemory += agent.MemoryBytes
+			evaporatedCount++
+			log.Printf("💨 EVAPORATED: %s agent [%s] - freed %d KB from RAM", 
+				agent.RoleName, agent.ID, agent.MemoryBytes/1024)
+		} else {
+			// Keep active agents
+			activeAgents = append(activeAgents, agent)
+		}
+	}
+
+	// Replace with only active agents (garbage collector will clean the rest)
+	ao.deployedAgents = activeAgents
+
+	if evaporatedCount > 0 {
+		log.Printf("🔥 Evaporation complete: %d agents dissolved, %d KB freed, %d agents remain active",
+			evaporatedCount, freedMemory/1024, len(activeAgents))
+	}
+
+	return evaporatedCount
+}
+
+// StartEvaporationLoop starts a background goroutine that periodically cleans up agents
+func (ao *AutonomousOrchestrator) StartEvaporationLoop(ctx context.Context) {
+	ao.wg.Add(1)
+	go func() {
+		defer ao.wg.Done()
+		ticker := time.NewTicker(30 * time.Second) // Check every 30 seconds
+		defer ticker.Stop()
+
+		log.Printf("💨 Agent evaporation loop started (RAM cleanup every 30s)")
+
+		for {
+			select {
+			case <-ctx.Done():
+				// Final evaporation on shutdown
+				ao.EvaporateAllAgents()
+				log.Printf("💨 Evaporation loop stopped - all agents evaporated")
+				return
+			case <-ao.stopChan:
+				ao.EvaporateAllAgents()
+				return
+			case <-ticker.C:
+				ao.EvaporateAgents()
+			}
+		}
+	}()
+}
+
+// EvaporateAllAgents forcefully evaporates all agents (used on shutdown)
+func (ao *AutonomousOrchestrator) EvaporateAllAgents() {
+	ao.mu.Lock()
+	defer ao.mu.Unlock()
+
+	count := len(ao.deployedAgents)
+	totalMemory := int64(0)
+
+	for _, agent := range ao.deployedAgents {
+		totalMemory += agent.MemoryBytes
+		agent.Status = AgentStatusEvaporated
+		agent.EvaporatedAt = time.Now()
+	}
+
+	// Clear the slice - allow garbage collection
+	ao.deployedAgents = nil
+	ao.deployedAgents = make([]*NEUSDeployedAgent, 0)
+
+	log.Printf("🔥 FULL EVAPORATION: %d agents dissolved, %d KB total freed from RAM", count, totalMemory/1024)
+}
+
+// GetActiveAgentCount returns the number of currently active agents in RAM
+func (ao *AutonomousOrchestrator) GetActiveAgentCount() int {
+	ao.mu.RLock()
+	defer ao.mu.RUnlock()
+
+	count := 0
+	for _, agent := range ao.deployedAgents {
+		if agent.Status == AgentStatusDeployed || agent.Status == AgentStatusExecuting {
+			count++
+		}
+	}
+	return count
+}
+
+// GetTotalAgentMemory returns total RAM used by all active agents
+func (ao *AutonomousOrchestrator) GetTotalAgentMemory() int64 {
+	ao.mu.RLock()
+	defer ao.mu.RUnlock()
+
+	total := int64(0)
+	for _, agent := range ao.deployedAgents {
+		if agent.Status != AgentStatusEvaporated {
+			total += agent.MemoryBytes
+		}
+	}
+	return total
 }
 
 func (ao *AutonomousOrchestrator) updateLearningState(event *SecurityEvent) {
