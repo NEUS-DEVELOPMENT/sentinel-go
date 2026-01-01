@@ -1,8 +1,8 @@
 # NEUS Sentinel Field Agent
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/YOUR-USERNAME/sentinel)](https://goreportcard.com/report/github.com/YOUR-USERNAME/sentinel)
+[![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
 [![Go Version](https://img.shields.io/badge/Go-1.21+-blue.svg)](https://golang.org)
-[![Coverage](https://img.shields.io/badge/Coverage-83.3%25-brightgreen.svg)](https://github.com/YOUR-USERNAME/sentinel)
+[![Coverage](https://img.shields.io/badge/Coverage-83.3%25-brightgreen.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 A high-performance security proxy that protects LLM applications from prompt injection, jailbreaking, and adversarial attacks.
@@ -35,12 +35,14 @@ Sentinel acts as a local security layer between your application and LLM provide
 ## 🔒 Security Modes
 
 ### Offline Mode (Without NEUS)
+
 - **Static Rules**: Local regex-based pattern matching
 - **Dynamic Rules**: Previously loaded hot-patches remain active
 - **Encryption**: Full AES-256 and RSA-2048 support
 - **Fallback**: Continues operating if NEUS is unreachable
 
 ### Connected Mode (With NEUS)
+
 - **Neural Analysis**: AI-powered threat detection
 - **Real-time Updates**: Instant hot-patch deployment
 - **Stealth Monitoring**: Track bypass attempts
