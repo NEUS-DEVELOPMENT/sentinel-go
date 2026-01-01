@@ -2,7 +2,7 @@
 
 # 🛡️ NEUS Sentinel: The Autonomous AI Sovereign (Gen 2)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/neus-development/sentinel-go)](https://goreportcard.com/report/github.com/neus-development/sentinel-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Go](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml/badge.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml)
 
