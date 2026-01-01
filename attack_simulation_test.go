@@ -78,11 +78,15 @@ type AttackWave struct {
 type NEUSAgentType int
 
 const (
-	AgentDefender NEUSAgentType = iota
-	AgentAnalyzer
-	AgentHunter
-	AgentForensic
-	AgentDeceiver // Honeypot/Deception agent
+	AgentDefender    NEUSAgentType = iota // Defense - blocks and mitigates attacks
+	AgentAnalyzer                         // Analysis - deep threat analysis
+	AgentHunter                           // Hunting - proactive threat hunting
+	AgentForensic                         // Forensics - post-incident analysis
+	AgentDeceiver                         // Honeypot/Deception - traps attackers
+	AgentAttacker                         // Counter-Attack - offensive response
+	AgentRecon                            // Reconnaissance - intelligence gathering
+	AgentSandbox                          // Sandbox - isolates and analyzes threats
+	AgentContainment                      // Containment - quarantine infected systems
 )
 
 func (n NEUSAgentType) String() string {
@@ -92,6 +96,10 @@ func (n NEUSAgentType) String() string {
 		"HUNTER",
 		"FORENSIC",
 		"DECEIVER",
+		"ATTACKER",
+		"RECON",
+		"SANDBOX",
+		"CONTAINMENT",
 	}[n]
 }
 
@@ -257,7 +265,7 @@ func (m *MockNEUSServer) StartHTTPServer() *httptest.Server {
 		json.NewEncoder(w).Encode(map[string]interface{}{})
 	})
 
-	// Alert endpoint
+	// Alert endpoint - deploys different agent types based on threat characteristics
 	handler.HandleFunc("/alert", func(w http.ResponseWriter, r *http.Request) {
 		var alert map[string]interface{}
 		json.NewDecoder(r.Body).Decode(&alert)
@@ -265,10 +273,82 @@ func (m *MockNEUSServer) StartHTTPServer() *httptest.Server {
 		m.alerts = append(m.alerts, alert)
 		m.mu.Unlock()
 
-		// Auto-deploy agents based on threat severity
-		if severity, ok := alert["severity"].(float64); ok && severity >= 80 {
-			m.DeployAgent(AgentDefender, alert["type"].(string))
-			m.DeployAgent(AgentAnalyzer, alert["type"].(string))
+		threatType := ""
+		if t, ok := alert["type"].(string); ok {
+			threatType = t
+		}
+		severity := 0.0
+		if s, ok := alert["severity"].(float64); ok {
+			severity = s
+		}
+
+		// TIER 1: Standard threats (severity 60-79)
+		if severity >= 60 && severity < 80 {
+			m.DeployAgent(AgentDefender, threatType)
+			log.Printf("🛡️ NEUS deployed DEFENDER agent for threat: %s", threatType)
+		}
+
+		// TIER 2: High severity threats (severity 80-89)
+		if severity >= 80 && severity < 90 {
+			m.DeployAgent(AgentDefender, threatType)
+			m.DeployAgent(AgentAnalyzer, threatType)
+			m.DeployAgent(AgentSandbox, threatType) // 🧪 Isolate for analysis
+			log.Printf("🛡️ NEUS deployed DEFENDER + ANALYZER + SANDBOX for: %s", threatType)
+		}
+
+		// TIER 3: Critical threats (severity 90-94)
+		if severity >= 90 && severity < 95 {
+			m.DeployAgent(AgentDefender, threatType)
+			m.DeployAgent(AgentHunter, threatType)      // 🔍 Hunt related threats
+			m.DeployAgent(AgentRecon, threatType)       // 🕵️ Intelligence gathering
+			m.DeployAgent(AgentSandbox, threatType)     // 🧪 Isolate for analysis
+			m.DeployAgent(AgentContainment, threatType) // 🔒 Quarantine systems
+			log.Printf("🚨 NEUS deployed FULL DEFENSE SUITE for CRITICAL: %s", threatType)
+		}
+
+		// TIER 4: Extreme/APT threats (severity >= 95) - Counter-attack mode
+		if severity >= 95 {
+			m.DeployAgent(AgentDefender, threatType)
+			m.DeployAgent(AgentHunter, threatType)
+			m.DeployAgent(AgentRecon, threatType)       // 🕵️ Map attacker infrastructure
+			m.DeployAgent(AgentAttacker, threatType)    // ⚔️ Counter-attack operations
+			m.DeployAgent(AgentDeceiver, threatType)    // 🎭 Deploy honeypots
+			m.DeployAgent(AgentSandbox, threatType)     // 🧪 Deep malware analysis
+			m.DeployAgent(AgentContainment, threatType) // 🔒 Full isolation
+			m.DeployAgent(AgentForensic, threatType)    // 🔬 Evidence collection
+			log.Printf("⚔️ NEUS deployed COUNTER-ATTACK SUITE for EXTREME threat: %s", threatType)
+		}
+
+		// Specific threat type handling
+		switch threatType {
+		case "APT":
+			// APT always gets Recon + Hunter
+			m.DeployAgent(AgentRecon, threatType)
+			m.DeployAgent(AgentHunter, threatType)
+			log.Printf("🕵️ APT detected - deploying RECON + HUNTER")
+		case "ZERO_DAY":
+			// Zero-day always gets Sandbox + Forensic
+			m.DeployAgent(AgentSandbox, threatType)
+			m.DeployAgent(AgentForensic, threatType)
+			log.Printf("🧪 ZERO_DAY detected - deploying SANDBOX + FORENSIC")
+		case "DATA_EXFILTRATION":
+			// Data theft gets Containment + Counter-attack
+			m.DeployAgent(AgentContainment, threatType)
+			if severity >= 85 {
+				m.DeployAgent(AgentAttacker, threatType)
+				log.Printf("⚔️ DATA_EXFILTRATION - deploying CONTAINMENT + ATTACKER")
+			}
+		case "DDOS":
+			// DDoS gets multiple Defenders
+			m.DeployAgent(AgentDefender, threatType)
+			m.DeployAgent(AgentDefender, threatType)
+			log.Printf("🛡️ DDOS detected - deploying multiple DEFENDERS")
+		}
+
+		// Create hot-patch for high severity
+		if severity >= 80 {
+			patch := m.CreateHotPatch(threatType, []string{"indicator1", "indicator2"})
+			log.Printf("🔧 NEUS created hot-patch: %s", patch["id"])
 		}
 
 		w.Header().Set("Content-Type", "application/json")

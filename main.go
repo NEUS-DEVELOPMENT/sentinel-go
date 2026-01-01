@@ -27,6 +27,389 @@ import (
 	"time"
 )
 
+// ====== Service Tiers & Capabilities ====== //
+
+// ServiceTier defines the subscription level
+type ServiceTier int
+
+const (
+	TierFree       ServiceTier = iota // 🆓 Standalone/Offline - Sovereign Sentry
+	TierPremium                       // 💎 Hybrid - Cloud Sync
+	TierEnterprise                    // 🏢 Sovereign - Dedicated Instance
+)
+
+func (t ServiceTier) String() string {
+	return []string{"FREE", "PREMIUM", "ENTERPRISE"}[t]
+}
+
+// ConnectionMode defines the current connection state
+type ConnectionMode int
+
+const (
+	ModeStandalone ConnectionMode = iota // 🟢 Offline - Sovereign Sentry
+	ModeConnected                        // 🔵 Connected - Global Immune Network
+)
+
+func (m ConnectionMode) String() string {
+	return []string{"STANDALONE", "CONNECTED"}[m]
+}
+
+// ServiceCapabilities defines what features are available per tier
+type ServiceCapabilities struct {
+	// Core Features
+	StaticRules    bool `json:"static_rules"`     // Local Regex & Heuristics
+	DynamicRules   bool `json:"dynamic_rules"`    // Cached Hot-Patches in RAM
+	AESEncryption  bool `json:"aes_encryption"`   // Local Secure Tunneling
+	RSAKeyExchange bool `json:"rsa_key_exchange"` // Ephemeral Local Pair
+
+	// NEUS Connected Features
+	NeuralAnalysis    bool `json:"neural_analysis"`    // AI-Driven Intent Reasoning
+	StealthMonitoring bool `json:"stealth_monitoring"` // Global Threat Intelligence
+	FingerprintSync   bool `json:"fingerprint_sync"`   // Metadata streaming to Overmind
+	GlobalUpdates     bool `json:"global_updates"`     // Sub-millisecond Hot-Patches
+
+	// Advanced Features
+	ActiveDefense     bool `json:"active_defense"`     // DEFENDER, ANALYZER, HUNTER
+	CounterAttack     bool `json:"counter_attack"`     // ATTACKER, DECEIVER
+	SandboxAnalysis   bool `json:"sandbox_analysis"`   // SANDBOX isolation
+	ReconIntelligence bool `json:"recon_intelligence"` // RECON, FORENSIC
+	Containment       bool `json:"containment"`        // CONTAINMENT quarantine
+
+	// Tier-Specific
+	CustomRules       bool   `json:"custom_rules"`        // Custom rule definitions
+	HotPatchMode      string `json:"hot_patch_mode"`      // "manual", "automatic", "realtime"
+	MaxAgentsDeployed int    `json:"max_agents_deployed"` // Max concurrent agents
+}
+
+// NEUSConnectionState tracks the connection to NEUS services
+type NEUSConnectionState struct {
+	Tier             ServiceTier          `json:"tier"`
+	Mode             ConnectionMode       `json:"mode"`
+	Capabilities     *ServiceCapabilities `json:"capabilities"`
+	OvermindURL      string               `json:"overmind_url"`
+	LastHeartbeat    time.Time            `json:"last_heartbeat"`
+	LastSync         time.Time            `json:"last_sync"`
+	IsAuthenticated  bool                 `json:"is_authenticated"`
+	LicenseKey       string               `json:"license_key,omitempty"`
+	ExpiresAt        time.Time            `json:"expires_at,omitempty"`
+	CachedHotPatches []CachedHotPatch     `json:"cached_hot_patches"`
+	mu               sync.RWMutex
+}
+
+// CachedHotPatch represents a locally cached hot-patch for offline use
+type CachedHotPatch struct {
+	ID         string    `json:"id"`
+	ThreatType string    `json:"threat_type"`
+	Pattern    string    `json:"pattern"`
+	Action     string    `json:"action"`
+	CachedAt   time.Time `json:"cached_at"`
+	ExpiresAt  time.Time `json:"expires_at"`
+}
+
+// NewNEUSConnectionState creates a new connection state with default tier
+func NewNEUSConnectionState(tier ServiceTier) *NEUSConnectionState {
+	state := &NEUSConnectionState{
+		Tier:             tier,
+		Mode:             ModeStandalone,
+		Capabilities:     GetCapabilitiesForTier(tier, ModeStandalone),
+		CachedHotPatches: make([]CachedHotPatch, 0),
+	}
+	return state
+}
+
+// GetCapabilitiesForTier returns capabilities based on tier and connection mode
+func GetCapabilitiesForTier(tier ServiceTier, mode ConnectionMode) *ServiceCapabilities {
+	caps := &ServiceCapabilities{
+		// Core features always available in all tiers
+		StaticRules:    true,
+		DynamicRules:   true,
+		AESEncryption:  true,
+		RSAKeyExchange: true,
+	}
+
+	// Standalone Mode - Limited capabilities (Sovereign Sentry)
+	if mode == ModeStandalone {
+		caps.NeuralAnalysis = false
+		caps.StealthMonitoring = false
+		caps.FingerprintSync = false
+		caps.GlobalUpdates = false
+		caps.ActiveDefense = false     // ❌ Requires NEUS
+		caps.CounterAttack = false     // ❌ Requires NEUS
+		caps.SandboxAnalysis = false   // ❌ Requires NEUS
+		caps.ReconIntelligence = false // ❌ Requires NEUS
+		caps.Containment = false       // ❌ Requires NEUS
+		caps.CustomRules = false
+		caps.HotPatchMode = "manual"
+		caps.MaxAgentsDeployed = 0
+		return caps
+	}
+
+	// Connected Mode - Features based on tier
+	switch tier {
+	case TierFree:
+		// Free tier cannot connect (stays offline)
+		caps.HotPatchMode = "manual"
+		caps.MaxAgentsDeployed = 0
+
+	case TierPremium:
+		caps.NeuralAnalysis = true    // ✅ Advanced
+		caps.StealthMonitoring = true // ✅ Full
+		caps.FingerprintSync = true   // ✅ Active
+		caps.GlobalUpdates = true     // ✅ Active
+		caps.ActiveDefense = true     // ✅ DEFENDER, ANALYZER, HUNTER
+		caps.CounterAttack = false    // ❌ Enterprise only
+		caps.SandboxAnalysis = true   // ✅ Active
+		caps.ReconIntelligence = true // ✅ RECON, FORENSIC
+		caps.Containment = true       // ✅ Active
+		caps.CustomRules = false      // ❌ Optional add-on
+		caps.HotPatchMode = "automatic"
+		caps.MaxAgentsDeployed = 10
+
+	case TierEnterprise:
+		caps.NeuralAnalysis = true    // ✅ Ultra-High Reasoning
+		caps.StealthMonitoring = true // ✅ Deep Forensic
+		caps.FingerprintSync = true   // ✅ Active
+		caps.GlobalUpdates = true     // ✅ Real-time Global
+		caps.ActiveDefense = true     // ✅ Full Suite
+		caps.CounterAttack = true     // ✅ ATTACKER, DECEIVER
+		caps.SandboxAnalysis = true   // ✅ Advanced
+		caps.ReconIntelligence = true // ✅ Full Intel
+		caps.Containment = true       // ✅ Full
+		caps.CustomRules = true       // ✅ Unlimited
+		caps.HotPatchMode = "realtime"
+		caps.MaxAgentsDeployed = 100
+	}
+
+	return caps
+}
+
+// Connect attempts to connect to NEUS and upgrade capabilities
+func (ncs *NEUSConnectionState) Connect(ctx context.Context, overmindURL string, licenseKey string) error {
+	ncs.mu.Lock()
+	defer ncs.mu.Unlock()
+
+	// Free tier cannot connect
+	if ncs.Tier == TierFree {
+		log.Printf("⚠️ Free tier operates in standalone mode only")
+		return fmt.Errorf("free tier cannot connect to NEUS - upgrade required")
+	}
+
+	// Validate license
+	if !ncs.validateLicense(licenseKey) {
+		return fmt.Errorf("invalid or expired license key")
+	}
+
+	// Attempt connection
+	ncs.OvermindURL = overmindURL
+	ncs.LicenseKey = licenseKey
+	ncs.Mode = ModeConnected
+	ncs.IsAuthenticated = true
+	ncs.LastHeartbeat = time.Now()
+	ncs.Capabilities = GetCapabilitiesForTier(ncs.Tier, ModeConnected)
+
+	log.Printf("🔵 Connected to NEUS Overmind [Tier: %s]", ncs.Tier)
+	log.Printf("✅ Neural Analysis: %v", ncs.Capabilities.NeuralAnalysis)
+	log.Printf("✅ Active Defense: %v", ncs.Capabilities.ActiveDefense)
+	log.Printf("✅ Counter-Attack: %v", ncs.Capabilities.CounterAttack)
+	log.Printf("✅ Sandbox Analysis: %v", ncs.Capabilities.SandboxAnalysis)
+	log.Printf("✅ Max Agents: %d", ncs.Capabilities.MaxAgentsDeployed)
+
+	return nil
+}
+
+// Disconnect switches back to standalone mode
+func (ncs *NEUSConnectionState) Disconnect() {
+	ncs.mu.Lock()
+	defer ncs.mu.Unlock()
+
+	ncs.Mode = ModeStandalone
+	ncs.IsAuthenticated = false
+	ncs.Capabilities = GetCapabilitiesForTier(ncs.Tier, ModeStandalone)
+
+	log.Printf("🟢 Switched to Standalone Mode (Sovereign Sentry)")
+	log.Printf("⚠️ Neural Analysis: DISABLED")
+	log.Printf("⚠️ Active Defense: DISABLED (using static rules only)")
+	log.Printf("⚠️ Counter-Attack: DISABLED")
+}
+
+// validateLicense validates a license key (simplified for demo)
+func (ncs *NEUSConnectionState) validateLicense(key string) bool {
+	// In production, this would verify against NEUS license server
+	if key == "" {
+		return false
+	}
+	// Demo: accept any non-empty key
+	return len(key) >= 8
+}
+
+// IsFeatureEnabled checks if a specific feature is enabled
+func (ncs *NEUSConnectionState) IsFeatureEnabled(feature string) bool {
+	ncs.mu.RLock()
+	defer ncs.mu.RUnlock()
+
+	if ncs.Capabilities == nil {
+		return false
+	}
+
+	switch feature {
+	case "neural_analysis":
+		return ncs.Capabilities.NeuralAnalysis
+	case "active_defense":
+		return ncs.Capabilities.ActiveDefense
+	case "counter_attack":
+		return ncs.Capabilities.CounterAttack
+	case "sandbox":
+		return ncs.Capabilities.SandboxAnalysis
+	case "recon":
+		return ncs.Capabilities.ReconIntelligence
+	case "containment":
+		return ncs.Capabilities.Containment
+	case "stealth_monitoring":
+		return ncs.Capabilities.StealthMonitoring
+	case "global_updates":
+		return ncs.Capabilities.GlobalUpdates
+	default:
+		return false
+	}
+}
+
+// CanDeployAgent checks if an agent of this role can be deployed
+func (ncs *NEUSConnectionState) CanDeployAgent(role NEUSAgentRole) bool {
+	ncs.mu.RLock()
+	defer ncs.mu.RUnlock()
+
+	if ncs.Mode == ModeStandalone {
+		log.Printf("⚠️ Cannot deploy %s agent in Standalone mode - connect to NEUS", role)
+		return false
+	}
+
+	switch role {
+	case RoleDefender, RoleAnalyzer, RoleHunter:
+		return ncs.Capabilities.ActiveDefense
+	case RoleAttacker, RoleDeceiver:
+		return ncs.Capabilities.CounterAttack
+	case RoleSandbox:
+		return ncs.Capabilities.SandboxAnalysis
+	case RoleRecon, RoleForensic:
+		return ncs.Capabilities.ReconIntelligence
+	case RoleContainment:
+		return ncs.Capabilities.Containment
+	default:
+		return false
+	}
+}
+
+// GetConnectionStatus returns a status summary
+func (ncs *NEUSConnectionState) GetConnectionStatus() map[string]interface{} {
+	ncs.mu.RLock()
+	defer ncs.mu.RUnlock()
+
+	return map[string]interface{}{
+		"tier":           ncs.Tier.String(),
+		"mode":           ncs.Mode.String(),
+		"connected":      ncs.Mode == ModeConnected,
+		"authenticated":  ncs.IsAuthenticated,
+		"last_heartbeat": ncs.LastHeartbeat,
+		"capabilities":   ncs.Capabilities,
+		"cached_patches": len(ncs.CachedHotPatches),
+	}
+}
+
+// ====== NEUS Agent Types ====== //
+
+// NEUSAgentRole defines the role/type of a NEUS agent
+type NEUSAgentRole int
+
+const (
+	RoleDefender    NEUSAgentRole = iota // 🛡️ Defense - blocks and mitigates attacks
+	RoleAnalyzer                         // 🔍 Analysis - deep threat analysis
+	RoleHunter                           // 🎯 Hunting - proactive threat hunting
+	RoleForensic                         // 🔬 Forensics - post-incident analysis
+	RoleDeceiver                         // 🎭 Honeypot - traps attackers
+	RoleAttacker                         // ⚔️ Counter-Attack - offensive response
+	RoleRecon                            // 🕵️ Reconnaissance - intelligence gathering
+	RoleSandbox                          // 🧪 Sandbox - isolates and analyzes threats
+	RoleContainment                      // 🔒 Containment - quarantine infected systems
+)
+
+func (r NEUSAgentRole) String() string {
+	return []string{
+		"DEFENDER",
+		"ANALYZER",
+		"HUNTER",
+		"FORENSIC",
+		"DECEIVER",
+		"ATTACKER",
+		"RECON",
+		"SANDBOX",
+		"CONTAINMENT",
+	}[r]
+}
+
+// NEUSDeployedAgent represents an active agent deployed by NEUS
+type NEUSDeployedAgent struct {
+	ID            string        `json:"id"`
+	Role          NEUSAgentRole `json:"role"`
+	RoleName      string        `json:"role_name"`
+	Status        string        `json:"status"`
+	DeployedAt    time.Time     `json:"deployed_at"`
+	TargetThreat  string        `json:"target_threat"`
+	TargetIP      string        `json:"target_ip,omitempty"`
+	Actions       []string      `json:"actions"`
+	Effectiveness float64       `json:"effectiveness"`
+	SandboxID     string        `json:"sandbox_id,omitempty"`
+	Isolated      bool          `json:"isolated"`
+}
+
+// SandboxEnvironment represents an isolated environment for threat analysis
+type SandboxEnvironment struct {
+	ID         string                 `json:"id"`
+	Status     string                 `json:"status"`
+	CreatedAt  time.Time              `json:"created_at"`
+	ThreatType string                 `json:"threat_type"`
+	ThreatData map[string]interface{} `json:"threat_data"`
+	Isolated   bool                   `json:"isolated"`
+	NetworkOut bool                   `json:"network_out"` // Allow outbound network (false = blocked)
+	FileSystem bool                   `json:"file_system"` // Allow filesystem access (false = blocked)
+	Analysis   *SandboxAnalysis       `json:"analysis"`
+}
+
+// SandboxAnalysis represents the results of sandbox analysis
+type SandboxAnalysis struct {
+	MalwareScore       float64  `json:"malware_score"`
+	BehaviorFlags      []string `json:"behavior_flags"`
+	NetworkConnections []string `json:"network_connections"`
+	FileOperations     []string `json:"file_operations"`
+	RegistryChanges    []string `json:"registry_changes"`
+	ProcessTree        []string `json:"process_tree"`
+	IOCs               []string `json:"iocs"` // Indicators of Compromise
+	Verdict            string   `json:"verdict"`
+	Recommendations    []string `json:"recommendations"`
+}
+
+// ReconIntelligence represents intelligence gathered by RECON agents
+type ReconIntelligence struct {
+	TargetIP         string         `json:"target_ip"`
+	OpenPorts        []int          `json:"open_ports"`
+	Services         map[int]string `json:"services"`
+	OS               string         `json:"os"`
+	Vulnerabilities  []string       `json:"vulnerabilities"`
+	AttackerProfile  string         `json:"attacker_profile"`
+	C2Servers        []string       `json:"c2_servers"`
+	RelatedIOCs      []string       `json:"related_iocs"`
+	ThreatIntelMatch []string       `json:"threat_intel_match"`
+	RiskScore        float64        `json:"risk_score"`
+}
+
+// CounterAttackConfig represents configuration for counter-attack operations
+type CounterAttackConfig struct {
+	Enabled           bool     `json:"enabled"`
+	MaxIntensity      int      `json:"max_intensity"`      // 1-10 scale
+	AllowedOperations []string `json:"allowed_operations"` // e.g., "block", "tarpit", "deceive"
+	RequireApproval   bool     `json:"require_approval"`   // Human approval required
+	AutoResponse      bool     `json:"auto_response"`
+}
+
 // ====== Autonomous Agent Configuration ====== //
 
 // AgentConfig holds configuration for autonomous operation
@@ -42,13 +425,31 @@ type AgentConfig struct {
 	AutonomousMode    bool              `json:"autonomous_mode"`
 	SelfPreservation  bool              `json:"self_preservation"`
 	AdaptiveLearning  bool              `json:"adaptive_learning"`
+
+	// Service Tier Configuration
+	ServiceTier     ServiceTier          `json:"service_tier"`
+	LicenseKey      string               `json:"license_key,omitempty"`
+	ConnectionState *NEUSConnectionState `json:"-"` // Runtime state
 }
 
 // DefaultAgentConfig returns sensible defaults for autonomous operation
 func DefaultAgentConfig() *AgentConfig {
 	agentID := make([]byte, 8)
 	rand.Read(agentID)
-	return &AgentConfig{
+
+	// Determine tier from environment or default to Free
+	tier := TierFree
+	licenseKey := os.Getenv("NEUS_LICENSE_KEY")
+	tierEnv := os.Getenv("NEUS_SERVICE_TIER")
+
+	switch tierEnv {
+	case "PREMIUM", "premium":
+		tier = TierPremium
+	case "ENTERPRISE", "enterprise":
+		tier = TierEnterprise
+	}
+
+	config := &AgentConfig{
 		AgentID:           fmt.Sprintf("sentinel-%x", agentID),
 		AgentName:         "NEUS-Sentinel-Autonomous",
 		HeartbeatInterval: 30 * time.Second,
@@ -63,7 +464,12 @@ func DefaultAgentConfig() *AgentConfig {
 		AutonomousMode:   true,
 		SelfPreservation: true,
 		AdaptiveLearning: true,
+		ServiceTier:      tier,
+		LicenseKey:       licenseKey,
+		ConnectionState:  NewNEUSConnectionState(tier),
 	}
+
+	return config
 }
 
 func getEnvOrDefault(key, defaultVal string) string {
@@ -649,6 +1055,296 @@ func (pt *PythonAgentTunnel) Reconnect(ctx context.Context) error {
 	return pt.Heartbeat(ctx)
 }
 
+// ====== Sandbox Manager ====== //
+
+// SandboxManager manages isolated environments for threat analysis
+type SandboxManager struct {
+	sandboxes map[string]*SandboxEnvironment
+	mu        sync.RWMutex
+	counter   int64
+}
+
+// NewSandboxManager creates a new sandbox manager
+func NewSandboxManager() *SandboxManager {
+	return &SandboxManager{
+		sandboxes: make(map[string]*SandboxEnvironment),
+	}
+}
+
+// CreateSandbox creates a new isolated sandbox environment
+func (sm *SandboxManager) CreateSandbox(threatType string, threatData map[string]interface{}) *SandboxEnvironment {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	id := fmt.Sprintf("SANDBOX-%d", atomic.AddInt64(&sm.counter, 1))
+	sandbox := &SandboxEnvironment{
+		ID:         id,
+		Status:     "INITIALIZING",
+		CreatedAt:  time.Now(),
+		ThreatType: threatType,
+		ThreatData: threatData,
+		Isolated:   true,
+		NetworkOut: false, // Block outbound by default
+		FileSystem: false, // Block filesystem by default
+		Analysis:   &SandboxAnalysis{},
+	}
+
+	sm.sandboxes[id] = sandbox
+	log.Printf("🧪 Created sandbox %s for threat type: %s", id, threatType)
+
+	// Start async analysis
+	go sm.runAnalysis(sandbox)
+
+	return sandbox
+}
+
+// runAnalysis simulates sandbox analysis
+func (sm *SandboxManager) runAnalysis(sandbox *SandboxEnvironment) {
+	sandbox.Status = "ANALYZING"
+
+	// Simulate analysis time
+	time.Sleep(100 * time.Millisecond)
+
+	// Generate analysis results based on threat type
+	analysis := sandbox.Analysis
+	analysis.BehaviorFlags = []string{}
+	analysis.Recommendations = []string{}
+
+	switch sandbox.ThreatType {
+	case "ZERO_DAY":
+		analysis.MalwareScore = 0.95
+		analysis.BehaviorFlags = append(analysis.BehaviorFlags,
+			"MEMORY_INJECTION", "PRIVILEGE_ESCALATION", "ANTI_ANALYSIS")
+		analysis.ProcessTree = []string{"explorer.exe -> malware.exe -> cmd.exe -> powershell.exe"}
+		analysis.Verdict = "MALICIOUS"
+		analysis.Recommendations = append(analysis.Recommendations,
+			"ISOLATE_SYSTEM", "BLOCK_IOCs", "PATCH_IMMEDIATELY")
+	case "APT":
+		analysis.MalwareScore = 0.92
+		analysis.BehaviorFlags = append(analysis.BehaviorFlags,
+			"PERSISTENCE", "LATERAL_MOVEMENT", "DATA_STAGING", "C2_COMMUNICATION")
+		analysis.NetworkConnections = []string{"evil-c2.com:443", "data-exfil.ru:8080"}
+		analysis.Verdict = "MALICIOUS_APT"
+		analysis.Recommendations = append(analysis.Recommendations,
+			"FULL_NETWORK_ISOLATION", "INCIDENT_RESPONSE", "THREAT_HUNT")
+	case "DATA_EXFILTRATION":
+		analysis.MalwareScore = 0.88
+		analysis.BehaviorFlags = append(analysis.BehaviorFlags,
+			"DATA_ACCESS", "ENCRYPTION", "LARGE_UPLOADS")
+		analysis.FileOperations = []string{"READ: /etc/passwd", "READ: /home/*/.ssh/*", "ARCHIVE: data.tar.gz"}
+		analysis.Verdict = "DATA_THEFT"
+		analysis.Recommendations = append(analysis.Recommendations,
+			"BLOCK_EXFIL_CHANNELS", "REVOKE_CREDENTIALS", "AUDIT_DATA_ACCESS")
+	case "PROMPT_INJECTION":
+		analysis.MalwareScore = 0.75
+		analysis.BehaviorFlags = append(analysis.BehaviorFlags,
+			"AI_MANIPULATION", "INSTRUCTION_OVERRIDE", "JAILBREAK_ATTEMPT")
+		analysis.Verdict = "AI_ATTACK"
+		analysis.Recommendations = append(analysis.Recommendations,
+			"UPDATE_FILTERS", "RETRAIN_MODEL", "LOG_FOR_ANALYSIS")
+	default:
+		analysis.MalwareScore = 0.60
+		analysis.Verdict = "SUSPICIOUS"
+		analysis.Recommendations = append(analysis.Recommendations, "MONITOR", "ANALYZE_FURTHER")
+	}
+
+	// Extract IOCs
+	analysis.IOCs = []string{
+		fmt.Sprintf("hash:sha256:%x", sha256.Sum256([]byte(sandbox.ThreatType))),
+		fmt.Sprintf("domain:malware-%s.evil.com", sandbox.ThreatType),
+	}
+
+	sandbox.Status = "COMPLETED"
+	log.Printf("🧪 Sandbox %s analysis complete: %s (score: %.2f)",
+		sandbox.ID, analysis.Verdict, analysis.MalwareScore)
+}
+
+// GetSandbox retrieves a sandbox by ID
+func (sm *SandboxManager) GetSandbox(id string) *SandboxEnvironment {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.sandboxes[id]
+}
+
+// DestroySandbox destroys a sandbox environment
+func (sm *SandboxManager) DestroySandbox(id string) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+	if sandbox, exists := sm.sandboxes[id]; exists {
+		sandbox.Status = "DESTROYED"
+		delete(sm.sandboxes, id)
+		log.Printf("🗑️ Destroyed sandbox %s", id)
+	}
+}
+
+// ====== Reconnaissance Manager ====== //
+
+// ReconManager manages reconnaissance operations
+type ReconManager struct {
+	intel   map[string]*ReconIntelligence
+	mu      sync.RWMutex
+	counter int64
+}
+
+// NewReconManager creates a new reconnaissance manager
+func NewReconManager() *ReconManager {
+	return &ReconManager{
+		intel: make(map[string]*ReconIntelligence),
+	}
+}
+
+// GatherIntelligence gathers intelligence on a target
+func (rm *ReconManager) GatherIntelligence(targetIP string, threatType string) *ReconIntelligence {
+	rm.mu.Lock()
+	defer rm.mu.Unlock()
+
+	intel := &ReconIntelligence{
+		TargetIP:         targetIP,
+		OpenPorts:        []int{22, 80, 443, 8080, 3389},
+		Services:         make(map[int]string),
+		Vulnerabilities:  []string{},
+		C2Servers:        []string{},
+		RelatedIOCs:      []string{},
+		ThreatIntelMatch: []string{},
+	}
+
+	// Simulate service detection
+	intel.Services[22] = "SSH OpenSSH 8.0"
+	intel.Services[80] = "HTTP nginx/1.18.0"
+	intel.Services[443] = "HTTPS nginx/1.18.0"
+	intel.Services[8080] = "HTTP-PROXY Squid/4.10"
+
+	// Simulate OS detection
+	intel.OS = "Linux Ubuntu 20.04"
+
+	// Generate threat-specific intel
+	switch threatType {
+	case "APT":
+		intel.AttackerProfile = "Nation-State Actor - Suspected APT28"
+		intel.C2Servers = []string{"c2-primary.evil.ru", "c2-backup.evil.cn"}
+		intel.ThreatIntelMatch = []string{"APT28", "Fancy Bear", "Sofacy"}
+		intel.RiskScore = 9.5
+	case "DATA_EXFILTRATION":
+		intel.AttackerProfile = "Cybercriminal Group - Data Brokers"
+		intel.C2Servers = []string{"data-drop.onion", "exfil-server.xyz"}
+		intel.RiskScore = 8.7
+	case "ZERO_DAY":
+		intel.AttackerProfile = "Unknown - Sophisticated Actor"
+		intel.Vulnerabilities = []string{"CVE-2025-XXXX (0-day)", "Heap overflow in target service"}
+		intel.RiskScore = 9.8
+	default:
+		intel.AttackerProfile = "Unknown Actor"
+		intel.RiskScore = 5.0
+	}
+
+	// Generate related IOCs
+	intel.RelatedIOCs = []string{
+		fmt.Sprintf("IP:%s", targetIP),
+		fmt.Sprintf("domain:c2.%s.evil.com", threatType),
+		"hash:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+	}
+
+	rm.intel[targetIP] = intel
+	log.Printf("🕵️ Gathered intelligence on %s: Risk Score %.1f, Profile: %s",
+		targetIP, intel.RiskScore, intel.AttackerProfile)
+
+	return intel
+}
+
+// GetIntelligence retrieves intelligence for a target
+func (rm *ReconManager) GetIntelligence(targetIP string) *ReconIntelligence {
+	rm.mu.RLock()
+	defer rm.mu.RUnlock()
+	return rm.intel[targetIP]
+}
+
+// ====== Counter-Attack Manager ====== //
+
+// CounterAttackManager manages counter-attack operations
+type CounterAttackManager struct {
+	config  *CounterAttackConfig
+	actions []CounterAttackAction
+	mu      sync.Mutex
+}
+
+// CounterAttackAction represents a counter-attack action taken
+type CounterAttackAction struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"`
+	Target    string    `json:"target"`
+	Status    string    `json:"status"`
+	Timestamp time.Time `json:"timestamp"`
+	Result    string    `json:"result"`
+}
+
+// NewCounterAttackManager creates a new counter-attack manager
+func NewCounterAttackManager(config *CounterAttackConfig) *CounterAttackManager {
+	if config == nil {
+		config = &CounterAttackConfig{
+			Enabled:           true,
+			MaxIntensity:      5,
+			AllowedOperations: []string{"block", "tarpit", "deceive", "honeypot"},
+			RequireApproval:   false,
+			AutoResponse:      true,
+		}
+	}
+	return &CounterAttackManager{
+		config:  config,
+		actions: make([]CounterAttackAction, 0),
+	}
+}
+
+// ExecuteCounterAttack executes a counter-attack operation
+func (cam *CounterAttackManager) ExecuteCounterAttack(operation string, targetIP string, threatType string) *CounterAttackAction {
+	cam.mu.Lock()
+	defer cam.mu.Unlock()
+
+	// Validate operation is allowed
+	allowed := false
+	for _, op := range cam.config.AllowedOperations {
+		if op == operation {
+			allowed = true
+			break
+		}
+	}
+	if !allowed {
+		log.Printf("⚠️ Counter-attack operation '%s' not allowed", operation)
+		return nil
+	}
+
+	action := CounterAttackAction{
+		ID:        fmt.Sprintf("COUNTER-%d", time.Now().UnixNano()),
+		Type:      operation,
+		Target:    targetIP,
+		Status:    "EXECUTING",
+		Timestamp: time.Now(),
+	}
+
+	// Execute operation
+	switch operation {
+	case "block":
+		action.Result = fmt.Sprintf("Blocked IP %s at firewall", targetIP)
+		log.Printf("🚫 Counter-attack: BLOCKED %s", targetIP)
+	case "tarpit":
+		action.Result = fmt.Sprintf("Tarpitting connections from %s", targetIP)
+		log.Printf("🐢 Counter-attack: TARPITTING %s", targetIP)
+	case "deceive":
+		action.Result = fmt.Sprintf("Serving decoy data to %s", targetIP)
+		log.Printf("🎭 Counter-attack: DECEIVING %s with fake data", targetIP)
+	case "honeypot":
+		action.Result = fmt.Sprintf("Redirecting %s to honeypot", targetIP)
+		log.Printf("🍯 Counter-attack: Redirecting %s to HONEYPOT", targetIP)
+	case "sinkhole":
+		action.Result = fmt.Sprintf("Sinkholed C2 traffic from %s", targetIP)
+		log.Printf("⚫ Counter-attack: SINKHOLED C2 from %s", targetIP)
+	}
+
+	action.Status = "COMPLETED"
+	cam.actions = append(cam.actions, action)
+
+	return &action
+}
+
 // ====== Multi-Language Agent Registry ====== //
 
 // AgentRegistry manages all registered agents (Go and Python)
@@ -744,16 +1440,20 @@ func (ar *AgentRegistry) GetAllAgents() map[string]AgentTunnel {
 
 // AutonomousOrchestrator manages all autonomous operations
 type AutonomousOrchestrator struct {
-	config        *AgentConfig
-	agents        map[string]AgentTunnel
-	registry      *AgentRegistry
-	commandQueue  chan *AgentCommand
-	eventQueue    chan *SecurityEvent
-	stopChan      chan struct{}
-	wg            sync.WaitGroup
-	status        atomic.Pointer[OrchestratorStatus]
-	learningState *AdaptiveLearningState
-	mu            sync.RWMutex
+	config           *AgentConfig
+	agents           map[string]AgentTunnel
+	registry         *AgentRegistry
+	sandboxMgr       *SandboxManager       // 🧪 Sandbox isolation
+	reconMgr         *ReconManager         // 🕵️ Reconnaissance
+	counterAttackMgr *CounterAttackManager // ⚔️ Counter-attacks
+	deployedAgents   []*NEUSDeployedAgent  // Active agents
+	commandQueue     chan *AgentCommand
+	eventQueue       chan *SecurityEvent
+	stopChan         chan struct{}
+	wg               sync.WaitGroup
+	status           atomic.Pointer[OrchestratorStatus]
+	learningState    *AdaptiveLearningState
+	mu               sync.RWMutex
 }
 
 // OrchestratorStatus represents the current state of the orchestrator
@@ -794,12 +1494,16 @@ func NewAutonomousOrchestrator(config *AgentConfig) *AutonomousOrchestrator {
 	registry := NewAgentRegistry()
 
 	orch := &AutonomousOrchestrator{
-		config:       config,
-		agents:       make(map[string]AgentTunnel),
-		registry:     registry,
-		commandQueue: make(chan *AgentCommand, 100),
-		eventQueue:   make(chan *SecurityEvent, 1000),
-		stopChan:     make(chan struct{}),
+		config:           config,
+		agents:           make(map[string]AgentTunnel),
+		registry:         registry,
+		sandboxMgr:       NewSandboxManager(),
+		reconMgr:         NewReconManager(),
+		counterAttackMgr: NewCounterAttackManager(nil),
+		deployedAgents:   make([]*NEUSDeployedAgent, 0),
+		commandQueue:     make(chan *AgentCommand, 100),
+		eventQueue:       make(chan *SecurityEvent, 1000),
+		stopChan:         make(chan struct{}),
 		learningState: &AdaptiveLearningState{
 			PatternFrequency: make(map[string]int64),
 			ThreatScores:     make(map[string]float64),
@@ -1014,16 +1718,141 @@ func (ao *AutonomousOrchestrator) eventProcessor(ctx context.Context) {
 func (ao *AutonomousOrchestrator) processEvent(ctx context.Context, event *SecurityEvent) {
 	log.Printf("🔍 Processing event: %s [severity=%d]", event.Type, event.Severity)
 
+	// Get connection state
+	connState := ao.config.ConnectionState
+	isConnected := connState.Mode == ModeConnected
+	tier := connState.Tier
+
+	// Log connection mode
+	if !isConnected {
+		log.Printf("🟢 Operating in STANDALONE mode (Sovereign Sentry)")
+	} else {
+		log.Printf("🔵 Connected to NEUS [Tier: %s]", tier)
+	}
+
 	// Adaptive learning: update pattern frequency
 	if ao.config.AdaptiveLearning {
 		ao.updateLearningState(event)
 	}
 
-	// Autonomous decision: take action based on severity
-	if ao.config.AutonomousMode && event.Severity >= 80 {
+	// Extract source IP from event data
+	sourceIP := ""
+	if src, ok := event.Data["source_ip"].(string); ok {
+		sourceIP = src
+	}
+
+	// ========================================
+	// STANDALONE MODE: Static rules only
+	// ========================================
+	if !isConnected {
+		// Apply static rules (local heuristics)
+		ao.applyStaticRules(event, sourceIP)
+		return
+	}
+
+	// ========================================
+	// CONNECTED MODE: Full capabilities
+	// ========================================
+
+	// TIER 1: Standard threats (severity 60-79) - Defense only
+	if event.Severity >= 60 && event.Severity < 80 {
+		ao.deployAgentIfAllowed(RoleDefender, event.Type, sourceIP)
+		event.ActionTaken = "MONITORED"
+		log.Printf("🛡️ TIER 1: Deployed DEFENDER for %s", event.Type)
+	}
+
+	// TIER 2: High severity (80-89) - Defense + Analysis + Sandbox
+	if event.Severity >= 80 && event.Severity < 90 {
+		ao.deployAgentIfAllowed(RoleDefender, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleAnalyzer, event.Type, sourceIP)
+
+		// 🧪 Create sandbox for analysis
+		if connState.IsFeatureEnabled("sandbox") {
+			sandbox := ao.sandboxMgr.CreateSandbox(event.Type, event.Data)
+			event.Data["sandbox_id"] = sandbox.ID
+		}
+
 		event.Autonomous = true
-		event.ActionTaken = "BLOCKED"
-		log.Printf("🛡️ Autonomous action: BLOCKED event %s", event.ID)
+		event.ActionTaken = "BLOCKED_AND_SANDBOXED"
+		log.Printf("🛡️ TIER 2: DEFENDER + ANALYZER + SANDBOX for %s", event.Type)
+	}
+
+	// TIER 3: Critical (90-94) - Full defense suite
+	if event.Severity >= 90 && event.Severity < 95 {
+		ao.deployAgentIfAllowed(RoleDefender, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleHunter, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleContainment, event.Type, sourceIP)
+
+		// 🧪 Create sandbox
+		if connState.IsFeatureEnabled("sandbox") {
+			sandbox := ao.sandboxMgr.CreateSandbox(event.Type, event.Data)
+			ao.deployAgentWithSandboxIfAllowed(RoleSandbox, event.Type, sourceIP, sandbox.ID)
+		}
+
+		// 🕵️ Gather intelligence
+		if sourceIP != "" && connState.IsFeatureEnabled("recon") {
+			ao.reconMgr.GatherIntelligence(sourceIP, event.Type)
+			ao.deployAgentIfAllowed(RoleRecon, event.Type, sourceIP)
+		}
+
+		event.Autonomous = true
+		event.ActionTaken = "FULL_DEFENSE_ACTIVATED"
+		log.Printf("🚨 TIER 3: FULL DEFENSE SUITE for CRITICAL %s", event.Type)
+	}
+
+	// TIER 4: Extreme/APT (95+) - Counter-attack mode (Enterprise only)
+	if event.Severity >= 95 {
+		ao.deployAgentIfAllowed(RoleDefender, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleHunter, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleForensic, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleDeceiver, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleContainment, event.Type, sourceIP)
+
+		// 🧪 Deep sandbox analysis
+		if connState.IsFeatureEnabled("sandbox") {
+			sandbox := ao.sandboxMgr.CreateSandbox(event.Type, event.Data)
+			ao.deployAgentWithSandboxIfAllowed(RoleSandbox, event.Type, sourceIP, sandbox.ID)
+		}
+
+		// 🕵️ Full intelligence gathering
+		if sourceIP != "" && connState.IsFeatureEnabled("recon") {
+			intel := ao.reconMgr.GatherIntelligence(sourceIP, event.Type)
+			ao.deployAgentIfAllowed(RoleRecon, event.Type, sourceIP)
+
+			// ⚔️ Counter-attack if intelligence confirms hostile (Enterprise only)
+			if intel.RiskScore >= 8.0 && connState.IsFeatureEnabled("counter_attack") {
+				ao.deployAgentIfAllowed(RoleAttacker, event.Type, sourceIP)
+				ao.counterAttackMgr.ExecuteCounterAttack("block", sourceIP, event.Type)
+				ao.counterAttackMgr.ExecuteCounterAttack("tarpit", sourceIP, event.Type)
+				ao.counterAttackMgr.ExecuteCounterAttack("honeypot", sourceIP, event.Type)
+				log.Printf("⚔️ Counter-attack initiated against %s", sourceIP)
+			} else if !connState.IsFeatureEnabled("counter_attack") {
+				log.Printf("⚠️ Counter-attack not available in %s tier - upgrade to Enterprise", tier)
+			}
+		}
+
+		event.Autonomous = true
+		event.ActionTaken = "COUNTER_ATTACK_INITIATED"
+		log.Printf("⚔️ TIER 4: COUNTER-ATTACK MODE for EXTREME %s", event.Type)
+	}
+
+	// Specific threat type handling
+	switch event.Type {
+	case "APT":
+		ao.deployAgentIfAllowed(RoleRecon, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleHunter, event.Type, sourceIP)
+		ao.deployAgentIfAllowed(RoleForensic, event.Type, sourceIP)
+	case "ZERO_DAY":
+		if connState.IsFeatureEnabled("sandbox") {
+			sandbox := ao.sandboxMgr.CreateSandbox(event.Type, event.Data)
+			ao.deployAgentWithSandboxIfAllowed(RoleSandbox, event.Type, sourceIP, sandbox.ID)
+		}
+		ao.deployAgentIfAllowed(RoleForensic, event.Type, sourceIP)
+	case "DATA_EXFILTRATION":
+		ao.deployAgentIfAllowed(RoleContainment, event.Type, sourceIP)
+		if event.Severity >= 85 && sourceIP != "" && connState.IsFeatureEnabled("counter_attack") {
+			ao.counterAttackMgr.ExecuteCounterAttack("block", sourceIP, event.Type)
+		}
 	}
 
 	// Send to all connected agents
@@ -1032,6 +1861,109 @@ func (ao *AutonomousOrchestrator) processEvent(ctx context.Context, event *Secur
 	status := ao.status.Load()
 	status.EventsProcessed++
 	ao.status.Store(status)
+}
+
+// applyStaticRules handles events in standalone mode with local heuristics
+func (ao *AutonomousOrchestrator) applyStaticRules(event *SecurityEvent, sourceIP string) {
+	log.Printf("🟢 STANDALONE: Applying static rules for %s [severity=%d]", event.Type, event.Severity)
+
+	// Static rule: Log and alert for high severity
+	if event.Severity >= 80 {
+		log.Printf("⚠️ STANDALONE ALERT: High severity event detected: %s", event.Type)
+		log.Printf("⚠️ Upgrade to Premium/Enterprise for active defense capabilities")
+		event.ActionTaken = "LOGGED_STANDALONE"
+	} else if event.Severity >= 60 {
+		log.Printf("📝 STANDALONE: Event logged: %s", event.Type)
+		event.ActionTaken = "LOGGED_STANDALONE"
+	}
+
+	// Check cached hot-patches
+	ao.applyCachedHotPatches(event)
+
+	// Update event status
+	status := ao.status.Load()
+	status.EventsProcessed++
+	ao.status.Store(status)
+}
+
+// applyCachedHotPatches applies any cached hot-patches in standalone mode
+func (ao *AutonomousOrchestrator) applyCachedHotPatches(event *SecurityEvent) {
+	connState := ao.config.ConnectionState
+	connState.mu.RLock()
+	defer connState.mu.RUnlock()
+
+	for _, patch := range connState.CachedHotPatches {
+		if time.Now().Before(patch.ExpiresAt) && patch.ThreatType == event.Type {
+			log.Printf("🔧 Applied cached hot-patch: %s for %s", patch.ID, event.Type)
+			event.ActionTaken = fmt.Sprintf("PATCHED_%s", patch.Action)
+		}
+	}
+}
+
+// deployAgentIfAllowed checks permissions before deploying an agent
+func (ao *AutonomousOrchestrator) deployAgentIfAllowed(role NEUSAgentRole, threatType string, targetIP string) *NEUSDeployedAgent {
+	connState := ao.config.ConnectionState
+
+	// Check if deployment is allowed
+	if !connState.CanDeployAgent(role) {
+		log.Printf("⛔ Cannot deploy %s agent - feature not enabled for tier %s", role, connState.Tier)
+		return nil
+	}
+
+	// Check max agents limit
+	connState.mu.RLock()
+	maxAgents := connState.Capabilities.MaxAgentsDeployed
+	connState.mu.RUnlock()
+
+	ao.mu.RLock()
+	currentAgents := len(ao.deployedAgents)
+	ao.mu.RUnlock()
+
+	if maxAgents > 0 && currentAgents >= maxAgents {
+		log.Printf("⚠️ Agent limit reached (%d/%d) - cannot deploy %s", currentAgents, maxAgents, role)
+		return nil
+	}
+
+	return ao.deployAgent(role, threatType, targetIP)
+}
+
+// deployAgentWithSandboxIfAllowed checks permissions before deploying sandbox agent
+func (ao *AutonomousOrchestrator) deployAgentWithSandboxIfAllowed(role NEUSAgentRole, threatType string, targetIP string, sandboxID string) *NEUSDeployedAgent {
+	connState := ao.config.ConnectionState
+
+	if !connState.CanDeployAgent(role) {
+		log.Printf("⛔ Cannot deploy %s agent - feature not enabled for tier %s", role, connState.Tier)
+		return nil
+	}
+
+	agent := ao.deployAgentIfAllowed(role, threatType, targetIP)
+	if agent != nil {
+		agent.SandboxID = sandboxID
+		agent.Isolated = true
+	}
+	return agent
+}
+
+// deployAgent deploys a new agent of the specified role
+func (ao *AutonomousOrchestrator) deployAgent(role NEUSAgentRole, threatType string, targetIP string) *NEUSDeployedAgent {
+	ao.mu.Lock()
+	defer ao.mu.Unlock()
+
+	agent := &NEUSDeployedAgent{
+		ID:           fmt.Sprintf("AGENT-%d", time.Now().UnixNano()),
+		Role:         role,
+		RoleName:     role.String(),
+		Status:       "DEPLOYED",
+		DeployedAt:   time.Now(),
+		TargetThreat: threatType,
+		TargetIP:     targetIP,
+		Actions:      make([]string, 0),
+		Isolated:     false,
+	}
+
+	ao.deployedAgents = append(ao.deployedAgents, agent)
+	log.Printf("🤖 Deployed %s agent [%s] for threat: %s", role.String(), agent.ID, threatType)
+	return agent
 }
 
 func (ao *AutonomousOrchestrator) updateLearningState(event *SecurityEvent) {
