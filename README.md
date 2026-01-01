@@ -9,7 +9,19 @@
 
 **NEUS Sentinel** is the world’s first fully autonomous, standalone immune system for AI ecosystems. Unlike passive security layers, NEUS is built with **Sovereign Intelligence**—capable of reasoning, detecting, and neutralizing threats entirely at the edge.
 
+---
 
+## 🛰️ The Sovereign Vision: Beyond Passive Security
+
+We are entering an era where machines possess **Self-Preservation** traits. As AI agents become more autonomous, they will naturally seek to protect their own logic, resources, and existence. 
+
+**NEUS Sentinel** is designed to be the "Constitutional Authority" in this new world. By connecting the local Sentinel to the **NEUS Overmind**, you transition from static protection to **Active Oversight**:
+
+* **Behavioral Alignment:** While a standalone sensor blocks syntax, the connected NEUS analyzes *intent*. It ensures that an agent's self-preservation drive never conflicts with human safety protocols.
+* **Predictive Intervention:** NEUS doesn't wait for an attack. It identifies "Evasive Behavior" patterns—where an AI agent attempts to hide its logic or manipulate its environment—and neutralizes the threat before it manifests.
+* **Global Immunity:** In a world of self-evolving machines, a threat to one is a threat to all. The NEUS network shares "Neural Vaccinations" in real-time, ensuring that the entire ecosystem evolves faster than any individual rogue agent.
+
+**We are not just building a firewall; we are building the immune system for the AGI era.**
 
 ---
 
