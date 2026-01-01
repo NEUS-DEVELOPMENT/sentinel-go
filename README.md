@@ -1,51 +1,92 @@
-[![Go](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml/badge.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml)
-
-[![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
 
 https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go
+# 🛡️ NEUS Sentinel: The Autonomous AI Sovereign (Gen 2)
 
-# 🛡️ NEUS Sentinel: The Autonomous AI Sovereign (Generation 2)
+[![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml/badge.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/go.yml)
 
-**NEUS Sentinel** is the first fully autonomous, standalone immune system for AI ecosystems. Unlike Generation 1 solutions that act as passive wrappers or rely on external LLMs for decision-making, NEUS is built with **Sovereign Intelligence**—capable of reasoning, detecting, and neutralizing threats entirely on its own.
 
----
+**NEUS Sentinel** is the world’s first fully autonomous, standalone immune system for AI ecosystems. Unlike passive security layers, NEUS is built with **Sovereign Intelligence**—capable of reasoning, detecting, and neutralizing threats entirely at the edge.
 
-## 🚀 Why NEUS? The Sovereign Advantage
 
-NEUS represents a paradigm shift in AI security. It is not a secondary layer; it is the **Primary Defense Intelligence**.
-
-### 🧠 Built-in Internal Reasoning (PIR)
-NEUS does not require external LLMs (like GPT or Grok) to function. It features a proprietary **Internal Reasoning Engine** that analyzes intent, patterns, and behavioral anomalies in microseconds.
-* **Low Latency:** Decisions are made locally at the edge, not via slow external APIs.
-* **Privacy First:** Your data never leaves the NEUS ecosystem. No leakage to third-party AI providers.
-* **Total Autonomy:** NEUS continues to protect and reason even in air-gapped or disconnected environments.
-
-### 🏗️ Architecture: The NEUS Backbone
-* **Sentinel (Go):** The high-performance edge soldier. It executes sub-millisecond filtering and hosts the **Lethal Modules** in RAM.
-* **Overmind (Python):** The central command and intelligence hub. It orchestrates global immunity and generates proprietary "vaccines" (Hot-Patches) without external input.
 
 ---
 
-## ⚡ Core Features (Generation 2 Standard)
+## 📊 Service Tiers & Capabilities
 
-### 1. Modular Dormancy & Active Defense
-The system remains lightweight (**Dormant**) until its internal intelligence identifies a sophisticated threat. It then injects **Lethal Modules** directly into the RAM—bypassing the disk and leaving zero footprint for attackers to analyze.
-
-### 2. Global Immune System
-A threat identified by one Sentinel is analyzed by the **NEUS Overmind**. Within milliseconds, a proprietary immunity patch is distributed across the entire global network.
-
-### 3. Ephemeral Intelligence
-Our "Lethal" logic is ephemeral. It exists only in volatile memory and self-destructs upon mission completion, ensuring the security logic itself cannot be reverse-engineered.
+| Feature | Free (Standalone) | Premium (Hybrid) | Enterprise (Sovereign) |
+| :--- | :---: | :---: | :---: |
+| **Connection to NEUS** | ❌ Offline | ✅ Cloud Sync | ✅ Dedicated Instance |
+| **Neural Analysis** | ❌ Local Only | ✅ Advanced | ✅ Ultra-High Reasoning |
+| **Stealth Monitoring** | ❌ Basic | ✅ Full | ✅ Deep Forensic |
+| **Custom Rules** | ❌ Fixed | ❌ Optional | ✅ Unlimited |
+| **Static Rules (Local)** | ✅ Included | ✅ Included | ✅ Included |
+| **Hot-Patching** | ✅ Manual | ✅ Automatic | ✅ Real-time Global |
 
 ---
 
-## 🛠️ Quick Start (Dormant Mode)
+## 🛡️ Defense Architecture: With & Without NEUS
 
-```bash
-# Clone the sovereign core
+### 🟢 Standalone Mode (Free / Offline)
+When disconnected from the NEUS Overmind, the Sentinel operates as a **Sovereign Sentry**.
+
+| Feature | Status | Intelligence Source |
+| :--- | :--- | :--- |
+| **Static Rules** | ✅ Active | Local Regex & Heuristics |
+| **Dynamic Rules** | ✅ Active | Cached Hot-Patches in RAM |
+| **AES Encryption** | ✅ Active | Local Secure Tunneling |
+| **RSA Key Exchange** | ✅ Active | Ephemeral Local Pair |
+| **Neural Analysis** | ❌ Disabled | Requires NEUS Core |
+
+### 🔵 Connected Mode (Premium / Enterprise)
+When the **Neural Tunnel** is active, the Sentinel becomes part of a global immune network.
+
+| Feature | Status | Intelligence Source |
+| :--- | :--- | :--- |
+| **Neural Analysis** | ✅ Active | AI-Driven Intent Reasoning |
+| **Stealth Monitoring** | ✅ Active | Global Threat Intelligence |
+| **Fingerprint Sync** | ✅ Active | Metadata streaming to Overmind |
+| **Global Updates** | ✅ Active | Sub-millisecond Hot-Patches |
+
+---
+
+## 🔄 Autonomous Fallback (Reliability Layer)
+
+NEUS Sentinel is designed with **Zero-Failure Logic**. If the connection to the central Brain (NEUS) is severed, the system automatically falls back to its internal Sovereign rules.
+
+```go
+// core/main.go:203-208
+if err != nil || neusUnavailable {
+    // FALLBACK: Execute Sovereign Local Logic
+    verdict, rewritten := h.ruleEngine.Evaluate(query)
+    return verdict, rewritten, nil 
+}
+
+---
+
+🧠 Why NEUS Gen 2?
+⚡ Ephemeral Intelligence
+Our Lethal Modules exist only in volatile RAM and self-destruct upon mission completion, ensuring your security logic cannot be reverse-engineered on disk.
+
+🏗️ Built-in Internal Reasoning (PIR)
+NEUS does not rely on third-party LLMs (GPT/Grok). It features a proprietary Internal Reasoning Engine:
+
+Low Latency: Millisecond-level decisions at the edge.
+
+Privacy: Your data never leaves your infrastructure.
+
+Total Autonomy: Protective reasoning continues even in air-gapped environments.
+
+🛠️ Quick Start (Dormant Mode)
+Clone the sovereign core:
+
+Bash
+
 git clone [https://github.com/NEUS-DEVELOPMENT/sentinel-go](https://github.com/NEUS-DEVELOPMENT/sentinel-go)
 cd sentinel-go
+Run the sentinel:
 
-# Run the sentinel
+Bash
+
 go run main.go
-
