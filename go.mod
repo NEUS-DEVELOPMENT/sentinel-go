@@ -1,3 +1,3 @@
-module github.com/NEUS-DEVELOPMENT/sentinel-go
+module github.com/neus-development/sentinel-go
 
 go 1.21
