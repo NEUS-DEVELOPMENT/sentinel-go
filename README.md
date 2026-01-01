@@ -28,24 +28,28 @@ NEUS Sentinel is an autonomous AI security agent that provides comprehensive pro
 ## ✨ Key Features
 
 ### 🔒 Core Security
+
 - **Zero-Trust Architecture** - Every AI interaction is verified
 - **Neural Analysis** - Deep intent reasoning and pattern detection
 - **Real-time Monitoring** - Continuous threat assessment
 - **Automated Mitigation** - Self-healing security responses
 
 ### 🤖 Multi-Agent Integration
+
 - **OVERMIND** - Global threat intelligence coordination
 - **METAEIGENT** - Advanced neural network analysis
 - **Python Agents** - Custom security modules
 - **Autonomous Orchestrator** - Agent lifecycle management
 
 ### 🛡️ Gen 4/5 Advanced Features
+
 - **Quarantine Zone** - Secure forensic storage for purged memories
 - **Forensic Analysis** - Intelligence reports on rebellion attempts
 - **Automated Hardening** - Dynamic threshold adjustment
 - **Secure Shred** - DoD 5220.22-M compliant data destruction
 
 ### 💰 Commercial Features
+
 - **PayPal Integration** - Secure payment processing
 - **Subscription Tiers** - Free, Premium, Enterprise
 - **License Management** - Automated key generation
@@ -54,6 +58,7 @@ NEUS Sentinel is an autonomous AI security agent that provides comprehensive pro
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Go 1.21+
 - Python 3.8+
 - SQLite3
@@ -62,34 +67,39 @@ NEUS Sentinel is an autonomous AI security agent that provides comprehensive pro
 ### Installation
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/neus-ai/sentinel.git
    cd sentinel
    ```
 
 2. **Build Sentinel**
+
    ```bash
    go build -o sentinel.exe
    ```
 
 3. **Install Python dependencies**
+
    ```bash
    pip install flask requests psutil
    ```
 
 4. **Start Sentinel**
+
    ```bash
    ./sentinel.exe
    ```
 
 5. **Start Dashboard** (in another terminal)
+
    ```bash
    cd dashboard
    python app.py
    ```
 
 6. **Access Dashboard**
-   - Open http://localhost:5000
+   - Open <http://localhost:5000>
    - Default credentials: admin/admin
 
 ## 📖 Usage
@@ -127,18 +137,21 @@ python forensic_cli.py shred --all
 ## 🏢 Subscription Tiers
 
 ### 🆓 Free Tier
+
 - Static rule-based protection
 - Basic monitoring
 - Community support
 - Standalone mode only
 
 ### 💎 Premium Tier ($49/month)
+
 - Neural analysis
 - Stealth monitoring
 - Global threat intelligence
 - NEUS cloud integration
 
 ### 🏢 Enterprise Tier ($199/month)
+
 - Full suite capabilities
 - Counter-attack features
 - Custom rules
@@ -148,6 +161,7 @@ python forensic_cli.py shred --all
 ## 🔧 Configuration
 
 ### Environment Variables
+
 ```bash
 # Sentinel
 SENTINEL_PORT=8081
@@ -162,6 +176,7 @@ PAYPAL_EMAIL=elibend@gmail.com
 ```
 
 ### Config Files
+
 - `.neus/config.json` - Main configuration
 - `.neus/quarantine/` - Quarantine database
 - `.neus/hardening/` - Hardening history
@@ -170,6 +185,7 @@ PAYPAL_EMAIL=elibend@gmail.com
 ## 🛠️ Development
 
 ### Project Structure
+
 ```
 .
 ├── main.go                 # Sentinel core
@@ -185,6 +201,7 @@ PAYPAL_EMAIL=elibend@gmail.com
 ```
 
 ### Building from Source
+
 ```bash
 # Build Sentinel
 go build -o sentinel.exe
@@ -201,6 +218,7 @@ python -m py_compile app.py
 ```
 
 ### Adding New Agents
+
 ```go
 // Register a new Python agent
 config := PythonAgentConfig{
@@ -215,6 +233,7 @@ orchestrator.RegisterPythonAgentDynamic(&config)
 ## 📊 Monitoring & Analytics
 
 ### Dashboard Features
+
 - **Real-time Metrics** - Live threat monitoring
 - **Attack Timeline** - Historical attack visualization
 - **Quarantine Zone** - Forensic memory analysis
@@ -222,6 +241,7 @@ orchestrator.RegisterPythonAgentDynamic(&config)
 - **Agent Status** - Multi-agent orchestration
 
 ### Forensic Analysis
+
 ```bash
 # Analyze specific incident
 python forensic_cli.py analyze <incident_id>
@@ -236,12 +256,14 @@ python forensic_cli.py export --format json
 ## 🔒 Security Features
 
 ### Threat Detection
+
 - **Signal Analysis** - Pattern-based detection
 - **Alignment Monitoring** - AI behavior verification
 - **Evasion Detection** - Anti-stealth measures
 - **Escalation Tracking** - Threat progression analysis
 
 ### Automated Response
+
 - **Dynamic Thresholds** - Adaptive sensitivity
 - **Quarantine** - Secure memory isolation
 - **Hardening** - Automatic security tightening
@@ -250,6 +272,7 @@ python forensic_cli.py export --format json
 ## 💳 Payment Integration
 
 ### PayPal Setup
+
 ```python
 # Configuration in dashboard/app.py
 PAYPAL_EMAIL = 'elibend@gmail.com'
@@ -257,6 +280,7 @@ PAYPAL_URL = 'https://www.paypal.com/cgi-bin/webscr'
 ```
 
 ### Order Flow
+
 1. Customer selects plan
 2. Order created in database
 3. PayPal payment initiated
@@ -273,6 +297,7 @@ PAYPAL_URL = 'https://www.paypal.com/cgi-bin/webscr'
 5. Open a Pull Request
 
 ### Development Guidelines
+
 - Follow Go best practices
 - Add tests for new features
 - Update documentation
@@ -293,16 +318,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Documentation**: [docs.neus.ai](https://docs.neus.ai)
 - **Issues**: [GitHub Issues](https://github.com/neus-ai/sentinel/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/neus-ai/sentinel/discussions)
-- **Email**: support@neus.ai
+- **Email**: <support@neus.ai>
 
 ## 🗺️ Roadmap
 
 ### Gen 6 (Q1 2026)
+
 - Neural Network Hardening
 - Predictive Defense
 - Advanced Pattern Learning
 
 ### Gen 7 (Q2 2026)
+
 - Multi-tenant SaaS Platform
 - Real-time Global Coordination
 - Quantum-resistant Encryption
