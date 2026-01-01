@@ -1,5 +1,5 @@
 
-https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go
+
 # 🛡️ NEUS Sentinel: The Autonomous AI Sovereign (Gen 2)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
