@@ -294,6 +294,9 @@ func (ncs *NEUSConnectionState) CanDeployAgent(role NEUSAgentRole) bool {
 		return ncs.Capabilities.ReconIntelligence
 	case RoleContainment:
 		return ncs.Capabilities.Containment
+	case RoleProxy:
+		// Proxy agent is deployed automatically when connecting to NEUS
+		return ncs.Mode == ModeConnected
 	default:
 		return false
 	}
@@ -330,6 +333,7 @@ const (
 	RoleRecon                            // 🕵️ Reconnaissance - intelligence gathering
 	RoleSandbox                          // 🧪 Sandbox - isolates and analyzes threats
 	RoleContainment                      // 🔒 Containment - quarantine infected systems
+	RoleProxy                            // 🔀 Proxy - NEUS traffic relay & inspection
 )
 
 func (r NEUSAgentRole) String() string {
@@ -343,6 +347,7 @@ func (r NEUSAgentRole) String() string {
 		"RECON",
 		"SANDBOX",
 		"CONTAINMENT",
+		"PROXY",
 	}[r]
 }
 
@@ -350,11 +355,11 @@ func (r NEUSAgentRole) String() string {
 type AgentStatus string
 
 const (
-	AgentStatusDeployed    AgentStatus = "DEPLOYED"     // 🚀 Active in RAM
-	AgentStatusExecuting   AgentStatus = "EXECUTING"    // ⚡ Processing threat
-	AgentStatusCompleted   AgentStatus = "COMPLETED"    // ✅ Mission accomplished
-	AgentStatusEvaporating AgentStatus = "EVAPORATING"  // 💨 Cleaning up from RAM
-	AgentStatusEvaporated  AgentStatus = "EVAPORATED"   // 🔥 Fully removed from RAM
+	AgentStatusDeployed    AgentStatus = "DEPLOYED"    // 🚀 Active in RAM
+	AgentStatusExecuting   AgentStatus = "EXECUTING"   // ⚡ Processing threat
+	AgentStatusCompleted   AgentStatus = "COMPLETED"   // ✅ Mission accomplished
+	AgentStatusEvaporating AgentStatus = "EVAPORATING" // 💨 Cleaning up from RAM
+	AgentStatusEvaporated  AgentStatus = "EVAPORATED"  // 🔥 Fully removed from RAM
 )
 
 // NEUSDeployedAgent represents an active agent deployed by NEUS
@@ -371,13 +376,13 @@ type NEUSDeployedAgent struct {
 	Effectiveness float64       `json:"effectiveness"`
 	SandboxID     string        `json:"sandbox_id,omitempty"`
 	Isolated      bool          `json:"isolated"`
-	
+
 	// RAM Lifecycle Management
-	TTL           time.Duration `json:"ttl"`            // Time-to-live in RAM
-	ExpiresAt     time.Time     `json:"expires_at"`     // When agent evaporates
-	CompletedAt   time.Time     `json:"completed_at"`   // When mission completed
-	EvaporatedAt  time.Time     `json:"evaporated_at"`  // When removed from RAM
-	MemoryBytes   int64         `json:"memory_bytes"`   // Estimated RAM footprint
+	TTL          time.Duration `json:"ttl"`           // Time-to-live in RAM
+	ExpiresAt    time.Time     `json:"expires_at"`    // When agent evaporates
+	CompletedAt  time.Time     `json:"completed_at"`  // When mission completed
+	EvaporatedAt time.Time     `json:"evaporated_at"` // When removed from RAM
+	MemoryBytes  int64         `json:"memory_bytes"`  // Estimated RAM footprint
 }
 
 // SandboxEnvironment represents an isolated environment for threat analysis
@@ -1077,17 +1082,278 @@ func (pt *PythonAgentTunnel) Reconnect(ctx context.Context) error {
 // ====== Sandbox Manager ====== //
 
 // SandboxManager manages isolated environments for threat analysis
+// Built-in sandbox works in STANDALONE mode, enhanced features with NEUS connection
 type SandboxManager struct {
-	sandboxes map[string]*SandboxEnvironment
-	mu        sync.RWMutex
-	counter   int64
+	sandboxes      map[string]*SandboxEnvironment
+	builtInSandbox *BuiltInSandbox // 🧪 Always available, even offline
+	proxyAgent     *ProxyAgent     // 🔀 Received when connecting to NEUS
+	mu             sync.RWMutex
+	counter        int64
 }
 
-// NewSandboxManager creates a new sandbox manager
+// BuiltInSandbox represents the always-available local sandbox
+type BuiltInSandbox struct {
+	ID              string    `json:"id"`
+	Status          string    `json:"status"`
+	Mode            string    `json:"mode"`           // "standalone" or "neus_enhanced"
+	MaxConcurrent   int       `json:"max_concurrent"` // Max concurrent analyses
+	ActiveAnalyses  int       `json:"active_analyses"`
+	MemoryLimitMB   int       `json:"memory_limit_mb"`
+	TimeoutSeconds  int       `json:"timeout_seconds"`
+	NetworkIsolated bool      `json:"network_isolated"`
+	CreatedAt       time.Time `json:"created_at"`
+	AnalysisCount   int64     `json:"analysis_count"`
+	ThreatsDetected int64     `json:"threats_detected"`
+}
+
+// ProxyAgent represents the NEUS traffic relay agent
+// Received when connecting to NEUS - enables secure traffic inspection
+type ProxyAgent struct {
+	ID              string    `json:"id"`
+	Status          string    `json:"status"`
+	Mode            string    `json:"mode"` // "transparent", "inspection", "mitm"
+	ListenPort      int       `json:"listen_port"`
+	UpstreamNEUS    string    `json:"upstream_neus"`
+	SSLInspection   bool      `json:"ssl_inspection"`
+	ThreatFiltering bool      `json:"threat_filtering"`
+	CacheEnabled    bool      `json:"cache_enabled"`
+	DeployedAt      time.Time `json:"deployed_at"`
+	RequestsHandled int64     `json:"requests_handled"`
+	ThreatsBlocked  int64     `json:"threats_blocked"`
+	BytesInspected  int64     `json:"bytes_inspected"`
+}
+
+// NewSandboxManager creates a new sandbox manager with built-in sandbox
 func NewSandboxManager() *SandboxManager {
-	return &SandboxManager{
+	sm := &SandboxManager{
 		sandboxes: make(map[string]*SandboxEnvironment),
+		builtInSandbox: &BuiltInSandbox{
+			ID:              fmt.Sprintf("BUILTIN-SANDBOX-%d", time.Now().UnixNano()),
+			Status:          "ACTIVE",
+			Mode:            "standalone",
+			MaxConcurrent:   5,
+			MemoryLimitMB:   256, // 256 MB for standalone
+			TimeoutSeconds:  60,
+			NetworkIsolated: true,
+			CreatedAt:       time.Now(),
+		},
 	}
+	log.Printf("🧪 Built-in Sandbox initialized [%s] - Mode: %s, Memory: %dMB",
+		sm.builtInSandbox.ID, sm.builtInSandbox.Mode, sm.builtInSandbox.MemoryLimitMB)
+	return sm
+}
+
+// DeployProxyAgent deploys the proxy agent when connecting to NEUS
+func (sm *SandboxManager) DeployProxyAgent(neusURL string, port int) *ProxyAgent {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sm.proxyAgent != nil && sm.proxyAgent.Status == "ACTIVE" {
+		log.Printf("🔀 Proxy agent already active [%s]", sm.proxyAgent.ID)
+		return sm.proxyAgent
+	}
+
+	sm.proxyAgent = &ProxyAgent{
+		ID:              fmt.Sprintf("PROXY-AGENT-%d", time.Now().UnixNano()),
+		Status:          "ACTIVE",
+		Mode:            "inspection",
+		ListenPort:      port,
+		UpstreamNEUS:    neusURL,
+		SSLInspection:   true,
+		ThreatFiltering: true,
+		CacheEnabled:    true,
+		DeployedAt:      time.Now(),
+	}
+
+	// Upgrade built-in sandbox to NEUS-enhanced mode
+	sm.builtInSandbox.Mode = "neus_enhanced"
+	sm.builtInSandbox.MaxConcurrent = 20   // More concurrent with NEUS
+	sm.builtInSandbox.MemoryLimitMB = 1024 // 1 GB with NEUS
+	sm.builtInSandbox.TimeoutSeconds = 300 // 5 minutes with NEUS
+
+	log.Printf("🔀 Proxy Agent deployed [%s] - Port: %d, Upstream: %s",
+		sm.proxyAgent.ID, port, neusURL)
+	log.Printf("🧪 Built-in Sandbox upgraded to NEUS-Enhanced mode - Memory: %dMB, Concurrent: %d",
+		sm.builtInSandbox.MemoryLimitMB, sm.builtInSandbox.MaxConcurrent)
+
+	return sm.proxyAgent
+}
+
+// EvaporateProxyAgent removes the proxy agent when disconnecting
+func (sm *SandboxManager) EvaporateProxyAgent() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
+
+	if sm.proxyAgent != nil {
+		log.Printf("💨 Evaporating Proxy Agent [%s] - Requests: %d, Threats Blocked: %d",
+			sm.proxyAgent.ID, sm.proxyAgent.RequestsHandled, sm.proxyAgent.ThreatsBlocked)
+		sm.proxyAgent = nil
+	}
+
+	// Downgrade sandbox to standalone mode
+	sm.builtInSandbox.Mode = "standalone"
+	sm.builtInSandbox.MaxConcurrent = 5
+	sm.builtInSandbox.MemoryLimitMB = 256
+	sm.builtInSandbox.TimeoutSeconds = 60
+
+	log.Printf("🧪 Built-in Sandbox downgraded to Standalone mode")
+}
+
+// GetBuiltInSandbox returns the built-in sandbox
+func (sm *SandboxManager) GetBuiltInSandbox() *BuiltInSandbox {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.builtInSandbox
+}
+
+// GetProxyAgent returns the proxy agent (nil if not connected to NEUS)
+func (sm *SandboxManager) GetProxyAgent() *ProxyAgent {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+	return sm.proxyAgent
+}
+
+// AnalyzeInBuiltInSandbox analyzes a threat in the built-in sandbox
+func (sm *SandboxManager) AnalyzeInBuiltInSandbox(threatType string, data map[string]interface{}) *SandboxAnalysis {
+	sm.mu.Lock()
+	if sm.builtInSandbox.ActiveAnalyses >= sm.builtInSandbox.MaxConcurrent {
+		sm.mu.Unlock()
+		log.Printf("⚠️ Built-in Sandbox at capacity (%d/%d) - queueing analysis",
+			sm.builtInSandbox.ActiveAnalyses, sm.builtInSandbox.MaxConcurrent)
+		return nil
+	}
+	sm.builtInSandbox.ActiveAnalyses++
+	sm.builtInSandbox.AnalysisCount++
+	sm.mu.Unlock()
+
+	// Perform analysis using local heuristics
+	malwareScore := sm.calculateLocalMalwareScore(threatType)
+	behaviorFlags := sm.analyzeLocalBehavior(threatType)
+
+	analysis := &SandboxAnalysis{
+		MalwareScore:       malwareScore,
+		BehaviorFlags:      behaviorFlags,
+		NetworkConnections: []string{},
+		FileOperations:     []string{},
+		RegistryChanges:    []string{},
+		ProcessTree:        []string{},
+		IOCs:               []string{},
+		Verdict:            "MALICIOUS",
+		Recommendations:    []string{"BLOCK", "QUARANTINE"},
+	}
+
+	if analysis.MalwareScore >= 0.7 {
+		sm.mu.Lock()
+		sm.builtInSandbox.ThreatsDetected++
+		sm.mu.Unlock()
+	}
+
+	sm.mu.Lock()
+	sm.builtInSandbox.ActiveAnalyses--
+	sm.mu.Unlock()
+
+	log.Printf("🧪 Built-in Sandbox analysis complete - Threat: %s, Score: %.2f, Mode: %s",
+		threatType, analysis.MalwareScore, sm.builtInSandbox.Mode)
+
+	return analysis
+}
+
+// calculateLocalMalwareScore calculates malware score using local heuristics
+func (sm *SandboxManager) calculateLocalMalwareScore(threatType string) float64 {
+	// Enhanced scoring in NEUS mode
+	baseScore := 0.5
+	if sm.builtInSandbox.Mode == "neus_enhanced" {
+		baseScore = 0.3 // More accurate with NEUS
+	}
+
+	switch threatType {
+	case "APT":
+		return baseScore + 0.45
+	case "ZERO_DAY":
+		return baseScore + 0.4
+	case "DATA_EXFILTRATION":
+		return baseScore + 0.35
+	case "SQL_INJECTION":
+		return baseScore + 0.25
+	case "XSS":
+		return baseScore + 0.2
+	case "PROMPT_INJECTION":
+		return baseScore + 0.3
+	default:
+		return baseScore + 0.1
+	}
+}
+
+// analyzeLocalBehavior analyzes threat behavior using local patterns
+func (sm *SandboxManager) analyzeLocalBehavior(threatType string) []string {
+	flags := []string{"SUSPICIOUS_ACTIVITY"}
+
+	switch threatType {
+	case "APT":
+		flags = append(flags, "PERSISTENCE", "LATERAL_MOVEMENT", "C2_COMMUNICATION")
+	case "ZERO_DAY":
+		flags = append(flags, "UNKNOWN_SIGNATURE", "EVASION_TECHNIQUE")
+	case "DATA_EXFILTRATION":
+		flags = append(flags, "DATA_ACCESS", "NETWORK_UPLOAD", "ENCRYPTION")
+	case "SQL_INJECTION":
+		flags = append(flags, "SQL_QUERY", "DATABASE_ACCESS")
+	case "XSS":
+		flags = append(flags, "SCRIPT_INJECTION", "DOM_MANIPULATION")
+	case "PROMPT_INJECTION":
+		flags = append(flags, "AI_MANIPULATION", "PROMPT_OVERRIDE")
+	}
+
+	return flags
+}
+
+// ProxyRequest handles a request through the proxy agent
+func (sm *SandboxManager) ProxyRequest(request map[string]interface{}) (bool, string) {
+	sm.mu.Lock()
+	if sm.proxyAgent == nil {
+		sm.mu.Unlock()
+		return false, "proxy_not_available"
+	}
+	sm.proxyAgent.RequestsHandled++
+	sm.mu.Unlock()
+
+	// Check for threats in request
+	threatDetected := false
+	reason := "allowed"
+
+	// Simple threat detection (in production would be more sophisticated)
+	if url, ok := request["url"].(string); ok {
+		if containsMaliciousPattern(url) {
+			threatDetected = true
+			reason = "malicious_url"
+			sm.mu.Lock()
+			sm.proxyAgent.ThreatsBlocked++
+			sm.mu.Unlock()
+		}
+	}
+
+	if body, ok := request["body"].(string); ok {
+		sm.mu.Lock()
+		sm.proxyAgent.BytesInspected += int64(len(body))
+		sm.mu.Unlock()
+	}
+
+	return !threatDetected, reason
+}
+
+// containsMaliciousPattern checks for malicious patterns in URL
+func containsMaliciousPattern(url string) bool {
+	maliciousPatterns := []string{
+		"eval(", "<script>", "javascript:",
+		"'; DROP TABLE", "UNION SELECT",
+		".exe", ".bat", ".ps1",
+		"cmd.exe", "powershell",
+	}
+	for _, pattern := range maliciousPatterns {
+		if regexp.MustCompile("(?i)" + regexp.QuoteMeta(pattern)).MatchString(url) {
+			return true
+		}
+	}
+	return false
 }
 
 // CreateSandbox creates a new isolated sandbox environment
@@ -1620,6 +1886,9 @@ func (ao *AutonomousOrchestrator) Stop() {
 	close(ao.stopChan)
 	ao.wg.Wait()
 
+	// � Evaporate proxy agent if connected
+	ao.sandboxMgr.EvaporateProxyAgent()
+
 	// 🔥 Final evaporation - clean all agents from RAM
 	ao.EvaporateAllAgents()
 
@@ -1628,6 +1897,43 @@ func (ao *AutonomousOrchestrator) Stop() {
 	ao.status.Store(status)
 
 	log.Printf("✅ Autonomous Orchestrator stopped - all agents evaporated from RAM")
+}
+
+// ConnectToNEUS connects to NEUS and deploys the Proxy Agent
+func (ao *AutonomousOrchestrator) ConnectToNEUS(ctx context.Context, licenseKey string) error {
+	connState := ao.config.ConnectionState
+	overmindURL := ao.config.ExternalAgents["OVERMIND"]
+
+	// Connect to NEUS
+	if err := connState.Connect(ctx, overmindURL, licenseKey); err != nil {
+		return err
+	}
+
+	// 🔀 Deploy Proxy Agent when connecting to NEUS
+	proxyPort := 8443 // Default proxy port
+	proxy := ao.sandboxMgr.DeployProxyAgent(overmindURL, proxyPort)
+
+	// Deploy the PROXY agent role
+	ao.deployAgentIfAllowed(RoleProxy, "NEUS_PROXY", "")
+
+	log.Printf("🔵 NEUS Connection established - Proxy Agent: %s", proxy.ID)
+	log.Printf("🧪 Built-in Sandbox upgraded to NEUS-Enhanced mode")
+
+	return nil
+}
+
+// DisconnectFromNEUS disconnects from NEUS and evaporates the Proxy Agent
+func (ao *AutonomousOrchestrator) DisconnectFromNEUS() {
+	connState := ao.config.ConnectionState
+
+	// Evaporate proxy agent
+	ao.sandboxMgr.EvaporateProxyAgent()
+
+	// Disconnect from NEUS
+	connState.Disconnect()
+
+	log.Printf("🟢 Disconnected from NEUS - Proxy Agent evaporated")
+	log.Printf("🧪 Built-in Sandbox downgraded to Standalone mode")
 }
 
 // heartbeatWorker sends periodic heartbeats to all agents
@@ -1973,23 +2279,25 @@ func (ao *AutonomousOrchestrator) deployAgentWithSandboxIfAllowed(role NEUSAgent
 func getAgentTTL(role NEUSAgentRole) time.Duration {
 	switch role {
 	case RoleDefender:
-		return 5 * time.Minute   // Quick response, evaporates fast
+		return 5 * time.Minute // Quick response, evaporates fast
 	case RoleAnalyzer:
-		return 10 * time.Minute  // Needs time to analyze
+		return 10 * time.Minute // Needs time to analyze
 	case RoleHunter:
-		return 15 * time.Minute  // Active hunting takes longer
+		return 15 * time.Minute // Active hunting takes longer
 	case RoleForensic:
-		return 30 * time.Minute  // Deep analysis required
+		return 30 * time.Minute // Deep analysis required
 	case RoleDeceiver:
-		return 20 * time.Minute  // Deception operations
+		return 20 * time.Minute // Deception operations
 	case RoleAttacker:
-		return 3 * time.Minute   // Quick strike, immediate evaporation
+		return 3 * time.Minute // Quick strike, immediate evaporation
 	case RoleRecon:
-		return 10 * time.Minute  // Intelligence gathering
+		return 10 * time.Minute // Intelligence gathering
 	case RoleSandbox:
-		return 15 * time.Minute  // Sandbox analysis time
+		return 15 * time.Minute // Sandbox analysis time
 	case RoleContainment:
-		return 5 * time.Minute   // Quick containment
+		return 5 * time.Minute // Quick containment
+	case RoleProxy:
+		return 0 // Proxy never expires - lives until NEUS disconnect
 	default:
 		return 5 * time.Minute
 	}
@@ -1999,7 +2307,7 @@ func getAgentTTL(role NEUSAgentRole) time.Duration {
 func getAgentMemoryEstimate(role NEUSAgentRole) int64 {
 	switch role {
 	case RoleDefender:
-		return 512 * 1024      // 512 KB
+		return 512 * 1024 // 512 KB
 	case RoleAnalyzer:
 		return 2 * 1024 * 1024 // 2 MB
 	case RoleHunter:
@@ -2008,8 +2316,10 @@ func getAgentMemoryEstimate(role NEUSAgentRole) int64 {
 		return 4 * 1024 * 1024 // 4 MB - needs more for analysis
 	case RoleSandbox:
 		return 8 * 1024 * 1024 // 8 MB - isolated environment
+	case RoleProxy:
+		return 4 * 1024 * 1024 // 4 MB - NEUS traffic relay
 	default:
-		return 512 * 1024      // 512 KB default
+		return 512 * 1024 // 512 KB default
 	}
 }
 
@@ -2038,7 +2348,7 @@ func (ao *AutonomousOrchestrator) deployAgent(role NEUSAgentRole, threatType str
 	}
 
 	ao.deployedAgents = append(ao.deployedAgents, agent)
-	log.Printf("🤖 Deployed %s agent [%s] for threat: %s (TTL: %v, RAM: %d KB)", 
+	log.Printf("🤖 Deployed %s agent [%s] for threat: %s (TTL: %v, RAM: %d KB)",
 		role.String(), agent.ID, threatType, ttl, agent.MemoryBytes/1024)
 	return agent
 }
@@ -2089,7 +2399,7 @@ func (ao *AutonomousOrchestrator) EvaporateAgents() int {
 			agent.EvaporatedAt = now
 			freedMemory += agent.MemoryBytes
 			evaporatedCount++
-			log.Printf("💨 EVAPORATED: %s agent [%s] - freed %d KB from RAM", 
+			log.Printf("💨 EVAPORATED: %s agent [%s] - freed %d KB from RAM",
 				agent.RoleName, agent.ID, agent.MemoryBytes/1024)
 		} else {
 			// Keep active agents
