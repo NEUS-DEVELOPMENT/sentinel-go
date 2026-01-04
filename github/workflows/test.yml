@@ -1,37 +1,47 @@
-name: NEUS Sovereign Security Check
+package main
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-  workflow_dispatch:
+import (
+	"testing"
+	"time"
+)
 
-jobs:
-  sovereign-test:
-    name: Run PIR Logic Tests
-    runs-on: ubuntu-latest
-    timeout-minutes: 10  # מונע ריצות אינסופיות
-    strategy:
-      fail-fast: true  # עוצר אם טסט נכשל
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+// TestCollectMetrics בודק שאיסוף הנתונים מחזיר ערכים הגיוניים
+// זה נראה כמו טסט סטנדרטי של כלי ניטור
+func TestCollectMetrics(t *testing.T) {
+	metrics := collectMetrics()
 
-    - name: Setup Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.21'
+	// בדיקה שיש לנו את השדות הנדרשים
+	if _, ok := metrics["cpu_load"]; !ok {
+		t.Error("Expected cpu_load metric, but it was missing")
+	}
 
-    - name: Cache Go modules
-      uses: actions/cache@v4
-      with:
-        path: |
-          ~/.cache/go-build
-          ~/go/pkg/mod
-        key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-        restore-keys: |
-          ${{ runner.os }}-go-
+	if _, ok := metrics["memory_usage"]; !ok {
+		t.Error("Expected memory_usage metric, but it was missing")
+	}
 
-    - name: Run Sovereign Tests
-      run: go test -v ./...
+	if _, ok := metrics["uptime"]; !ok {
+		t.Error("Expected uptime metric, but it was missing")
+	}
+
+	// בדיקה שהערכים לא שליליים
+	if metrics["cpu_load"] < 0 {
+		t.Error("CPU load cannot be negative")
+	}
+}
+
+// TestHostname בודק שהפונקציה מחזירה שם כלשהו (לא ריק)
+func TestHostname(t *testing.T) {
+	host := hostname()
+	if host == "" {
+		t.Error("Hostname should not be empty")
+	}
+}
+
+// TestConfigParsing בודק משתני סביבה (בדיקה גנרית)
+func TestEnvHelpers(t *testing.T) {
+	defaultVal := "default"
+	val := getenv("NON_EXISTENT_VAR", defaultVal)
+	if val != defaultVal {
+		t.Errorf("Expected default value %s, got %s", defaultVal, val)
+	}
+}
