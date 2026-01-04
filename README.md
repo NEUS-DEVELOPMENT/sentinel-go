@@ -1,6 +1,5 @@
 # 📊 SysTelemetry Agent (Go)
 
-# 📊 SysTelemetry Agent (Go)
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
