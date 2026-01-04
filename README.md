@@ -42,3 +42,16 @@ You can deploy the agent using the standard installer script:
 
 ```bash
 curl -sL [https://your-app.onrender.com/install_agent.sh](https://your-app.onrender.com/install_agent.sh) | sudo bash
+
+Manual Build
+To build from source:
+
+git clone [https://github.com/your-org/sys-telemetry-agent.git](https://github.com/your-org/sys-telemetry-agent.git)
+cd sys-telemetry-agent
+go build -ldflags="-s -w" -o agent main.go
+./agent --url [https://your-gateway-url.com](https://your-gateway-url.com)
+
+🔒 Security Note
+​This agent is designed for enterprise environments. It supports Remote Revocation protocols, allowing administrators to remotely disable and uninstall agents from compromised or decommissioned nodes via the Gateway dashboard.
+​📄 License
+​MIT License. See LICENSE for details.
