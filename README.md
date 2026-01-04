@@ -1,8 +1,12 @@
 # 📊 SysTelemetry Agent (Go)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/your-org/sys-telemetry-agent)](https://goreportcard.com/report/github.com/your-org/sys-telemetry-agent)
+# 📊 SysTelemetry Agent (Go)
+
+[![Go Report Card](https://goreportcard.com/badge/github.com/NEUS-DEVELOPMENT/sentinel-go)](https://goreportcard.com/report/github.com/NEUS-DEVELOPMENT/sentinel-go)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://github.com/your-org/sys-telemetry-agent/actions/workflows/go.yml/badge.svg)](https://github.com/your-org/sys-telemetry-agent/actions)
+[![Build Status](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions/workflows/build.yml/badge.svg)](https://github.com/NEUS-DEVELOPMENT/sentinel-go/actions)
+
+**SysTelemetry Agent** is a lightweight, high-performance monitoring daemon written in Go...
 
 **SysTelemetry Agent** is a lightweight, high-performance monitoring daemon written in Go. It is designed to collect system metrics (CPU, RAM, Disk, Uptime) from distributed nodes and report them to a central **SysTelemetry Gateway**.
 
