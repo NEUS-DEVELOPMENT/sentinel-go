@@ -8,6 +8,10 @@
 *.so
 *.dylib
 
+# Built agent binaries
+sentinel-agent
+sentinel-go
+
 # Test binary, built with `go test -c`
 *.test
 
