@@ -1,6 +1,10 @@
 package main
 
 import (
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"testing"
 )
 
@@ -75,19 +79,67 @@ func TestGetenvInt(t *testing.T) {
 func TestVerifyHS256JWT(t *testing.T) {
 	secret := "test-secret"
 
-	// Valid token created with the same secret
-	// This is a minimal test token with header.payload.signature
-	validToken := "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjp7Im9wY29kZSI6IjB4REVBRCJ9fQ.invalid-signature"
+	// Helper function to create a valid JWT token
+	createValidToken := func(payload map[string]any, secret string) string {
+		// Create header
+		header := map[string]string{"alg": "HS256", "typ": "JWT"}
+		headerJSON, _ := json.Marshal(header)
+		headerB64 := base64.RawURLEncoding.EncodeToString(headerJSON)
+
+		// Create payload
+		payloadJSON, _ := json.Marshal(payload)
+		payloadB64 := base64.RawURLEncoding.EncodeToString(payloadJSON)
+
+		// Create signature
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write([]byte(headerB64 + "." + payloadB64))
+		signature := mac.Sum(nil)
+		signatureB64 := base64.RawURLEncoding.EncodeToString(signature)
+
+		return headerB64 + "." + payloadB64 + "." + signatureB64
+	}
+
+	// Test with valid token
+	t.Run("valid token", func(t *testing.T) {
+		payload := map[string]any{
+			"data": map[string]any{
+				"opcode": "0xDEAD",
+			},
+		}
+		token := createValidToken(payload, secret)
+
+		result, err := verifyHS256JWT(token, secret)
+		if err != nil {
+			t.Errorf("Expected no error for valid token, got: %v", err)
+		}
+		if result == nil {
+			t.Error("Expected payload, got nil")
+		}
+		if data, ok := result["data"].(map[string]any); ok {
+			if opcode, ok := data["opcode"].(string); !ok || opcode != "0xDEAD" {
+				t.Errorf("Expected opcode '0xDEAD', got: %v", data["opcode"])
+			}
+		} else {
+			t.Error("Expected data field in payload")
+		}
+	})
 
 	// Test with invalid token format
-	_, err := verifyHS256JWT("invalid.token", secret)
-	if err == nil {
-		t.Error("Expected error for invalid token format")
-	}
+	t.Run("invalid format", func(t *testing.T) {
+		_, err := verifyHS256JWT("invalid.token", secret)
+		if err == nil {
+			t.Error("Expected error for invalid token format")
+		}
+	})
 
 	// Test with invalid signature
-	_, err = verifyHS256JWT(validToken, secret)
-	if err == nil {
-		t.Error("Expected error for invalid signature")
-	}
+	t.Run("invalid signature", func(t *testing.T) {
+		payload := map[string]any{"data": map[string]any{"opcode": "0xDEAD"}}
+		token := createValidToken(payload, secret)
+		// Use wrong secret to verify
+		_, err := verifyHS256JWT(token, "wrong-secret")
+		if err == nil {
+			t.Error("Expected error for invalid signature")
+		}
+	})
 }

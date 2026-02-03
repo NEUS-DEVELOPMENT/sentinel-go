@@ -97,6 +97,14 @@ func collectMetrics() map[string]float64 {
 var startTime = time.Now()
 
 // --- Network Communication ---
+
+// calculateBackoff returns the exponential backoff delay for a given attempt.
+// For attempt N, returns baseDelay * 2^(N-1). E.g., for baseDelay=2s:
+// attempt 1 -> 2s, attempt 2 -> 4s, attempt 3 -> 8s
+func calculateBackoff(attempt int, baseDelay time.Duration) time.Duration {
+	return baseDelay * time.Duration(1<<uint(attempt-1))
+}
+
 func sendTelemetry(data TelemetryData) (*SyncResponse, error) {
 	var lastErr error
 	maxRetries := 3
@@ -119,7 +127,7 @@ func sendTelemetry(data TelemetryData) (*SyncResponse, error) {
 		if err != nil {
 			lastErr = err
 			if attempt < maxRetries {
-				delay := baseDelay * time.Duration(1<<uint(attempt-1)) // Exponential backoff
+				delay := calculateBackoff(attempt, baseDelay)
 				log.Printf("[WARN] Telemetry send failed (attempt %d/%d): %v. Retrying in %v...", attempt, maxRetries, err, delay)
 				time.Sleep(delay)
 				continue
@@ -131,7 +139,7 @@ func sendTelemetry(data TelemetryData) (*SyncResponse, error) {
 		if resp.StatusCode != 200 {
 			lastErr = errors.New("server error")
 			if attempt < maxRetries {
-				delay := baseDelay * time.Duration(1<<uint(attempt-1))
+				delay := calculateBackoff(attempt, baseDelay)
 				log.Printf("[WARN] Server returned status %d (attempt %d/%d). Retrying in %v...", resp.StatusCode, attempt, maxRetries, delay)
 				time.Sleep(delay)
 				continue
@@ -261,10 +269,10 @@ func sendMetrics() {
 			}
 		}
 
-		// Update interval if provided
+		// Note: Dynamic interval updates removed to avoid race conditions.
+		// The interval from the server response can be logged but not applied at runtime.
 		if resp.SyncInterval > 0 && resp.SyncInterval != SYNC_INTERVAL {
-			log.Printf("[INFO] Sync interval updated: %d -> %d seconds", SYNC_INTERVAL, resp.SyncInterval)
-			SYNC_INTERVAL = resp.SyncInterval
+			log.Printf("[INFO] Server suggests interval: %d seconds (current: %d). Restart agent to apply.", resp.SyncInterval, SYNC_INTERVAL)
 		}
 	} else {
 		log.Printf("[ERROR] Connection error: %v", err)
