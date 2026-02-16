@@ -1,41 +1,45 @@
-# Contributing to NEUS Sentinel 🛡️
+# Contributing to Neus Sentinel
+**Technical Standards for Sovereign Intelligence Development**
 
-First off, thank you for considering contributing to NEUS! It’s people like you who make NEUS Sentinel a world-class autonomous immune system.
+This document outlines the professional requirements for contributing to the Neus Sentinel core. As an MIT licensed project within the Neus AI platform, we welcome contributions that enhance the effectiveness and performance of our autonomous immune system.
 
-By contributing, you help secure the future of AI.
+## Security Philosophy
+All contributions must align with the foundational pillars of Sovereign Intelligence:
 
-## 🛡️ Our Security Philosophy
-NEUS is built on **Sovereign Intelligence**. We prioritize:
-1. **Performance:** Security logic must run in microseconds.
-2. **Autonomy:** Modules should be effective even when offline.
-3. **Stealth:** Protection logic should be ephemeral and hard to reverse-engineer.
+* **Performance**
+Security logic must be optimized for microsecond execution. Latency is a vulnerability.
+* **Autonomy**
+Architectural modules must remain fully operational in air gapped or unstable network environments.
+* **Stealth**
+Protection mechanisms must be ephemeral and engineered to resist adversarial reverse engineering.
 
-## 🛠️ How Can You Help?
+## Technical Contribution Areas
 
-### 1. Adding Security Patterns (Rules)
-If you discover a new Prompt Injection technique or a dangerous SQL pattern, you can add it to the `StaticRuleEngine`.
-- Rules must be implemented as optimized Regular Expressions.
-- Each rule must include a brief comment explaining the threat it mitigates.
+### 1. Security Pattern Engineering
+Optimization of the StaticRuleEngine via high performance Regular Expressions. Focus areas include the mitigation of advanced Prompt Injection techniques and SQL injection patterns with minimal computational overhead.
 
-### 2. Enhancing the Go Core
-We are always looking to optimize the Sentinel's performance:
-- Reducing memory allocations (GC pressure).
-- Improving the `NeuralTunnel` encryption handshake.
-- Enhancing the `HotPatch` atomic swapping mechanism.
+### 2. Go Core Infrastructure
+Refinement of the Sentinel execution layer:
+* Minimizing heap allocations to reduce Garbage Collection interference.
+* Hardening the NeuralTunnel encryption protocols for secure telemetry.
+* Optimizing the HotPatch atomic swapping mechanism for zero downtime logic updates.
 
-### 3. Reporting Vulnerabilities
-**Please do not open a public issue for security vulnerabilities.** If you find a bypass in the Sentinel, email us at `security@neus-logic.io`. We will coordinate a fix and credit you in the changelog.
+### 3. Vulnerability Disclosure
+To maintain the integrity of the AI ecosystem, do not disclose security vulnerabilities through public issues. Coordinate all disclosures privately via security@neus-platform.io.
 
-## 🚀 Development Workflow
+## Development Workflow
 
-1. **Fork** the repository and create your branch from `main`.
-2. **Install Go 1.21+** and ensure your environment is clean.
-3. **Write Tests:** No contribution will be accepted without corresponding tests in `main_test.go`.
-4. **Format:** Run `go fmt ./...` before committing.
-5. **Lint:** Ensure your code passes `go vet`.
+* **Branching Strategy**
+Contributors are required to fork the repository and initiate feature branches from the main distribution line.
+* **Environment Standards**
+The project requires Go 1.21 or higher. Development must occur within a clean and isolated environment.
+* **Validation and Testing**
+No code will be merged without comprehensive unit and integration tests. All logic must be validated within the main_test.go suite.
+* **Code Integrity**
+Prior to submission, execution of go fmt and go vet is mandatory to ensure adherence to platform standards.
 
-## 📜 Code of Conduct
-By participating in this project, you agree to abide by our Code of Conduct: Be respectful, stay objective, and prioritize the safety of the AI ecosystem.
+## Code of Conduct
+All participants are expected to maintain professional objectivity and prioritize the safety and stability of the AI landscape.
 
----
-*NEUS Sentinel is a Generation 2 Security Solution. Let's build a sovereign future together.*
+## License
+By contributing to Neus Sentinel, you agree that your contributions will be licensed under the project MIT License.
