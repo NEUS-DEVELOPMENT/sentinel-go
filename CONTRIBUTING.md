@@ -30,7 +30,7 @@ Refinement of the Sentinel execution layer:
 * Optimizing the HotPatch atomic swapping mechanism for zero downtime logic updates.
 
 ### 3. Vulnerability Disclosure
-To maintain the integrity of the AI ecosystem, do not disclose security vulnerabilities through public issues. Coordinate all disclosures privately via security@neus-platform.io.
+To maintain the integrity of the AI ecosystem, do not disclose security vulnerabilities through public issues. Coordinate all disclosures privately via eliyahu@neusdevelopment.tech.
 
 ## Development Workflow
 
