@@ -1,6 +1,11 @@
 # Contributing to Neus Sentinel
 **Technical Standards for Sovereign Intelligence Development**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+![Neus Free](https://img.shields.io/badge/neus-free-green)
+![Product Name](https://img.shields.io/badge/Product-Neus_Sentinel-orange)
+
+
 This document outlines the professional requirements for contributing to the Neus Sentinel core. As an MIT licensed project within the Neus AI platform, we welcome contributions that enhance the effectiveness and performance of our autonomous immune system.
 
 ## Security Philosophy
@@ -42,4 +47,4 @@ Prior to submission, execution of go fmt and go vet is mandatory to ensure adher
 All participants are expected to maintain professional objectivity and prioritize the safety and stability of the AI landscape.
 
 ## License
-By contributing to Neus Sentinel, you agree that your contributions will be licensed under the project MIT License.
+By contributing to Neus Sentinel, you agree that your contributions will be licensed under the project MIT License, held by Eliyahu Ben David (NEUS DEVELOPMENT).
